@@ -2,7 +2,7 @@
 <ui version="4.0">
  <class>LungCollapse</class>
  <widget class="qMRMLWidget" name="LungCollapse">
-  <layout class="QVBoxLayout" name="vbox_66">
+  <layout class="QVBoxLayout" name="vbox_81">
    <item>
     <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton">
      <property name="text">
@@ -11,379 +11,710 @@
      <property name="collapsed">
       <bool>false</bool>
      </property>
-     <layout class="QVBoxLayout" name="vbox_29">
+     <layout class="QVBoxLayout" name="vbox_36">
       <item>
-       <layout class="QHBoxLayout" name="hbox_2">
-        <item>
-         <widget class="QRadioButton" name="sourceSceneRadio">
+       <layout class="QFormLayout" name="form_35">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_27">
           <property name="text">
-           <string>From the scene</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-          <property name="toolTip">
-           <string>Use a segmentation (and CT) already loaded in the scene</string>
+           <string>CT:</string>
           </property>
          </widget>
         </item>
-        <item>
-         <widget class="QRadioButton" name="sourceFilesRadio">
-          <property name="text">
-           <string>From files</string>
-          </property>
-          <property name="toolTip">
-           <string>Load a segmentation file (.seg.nrrd or a labelmap .nrrd / .nii / .nii.gz) into the scene</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="sourceSurfacesRadio">
-          <property name="text">
-           <string>Surfaces (advanced)</string>
-          </property>
-          <property name="toolTip">
-           <string>Ready closed surfaces (.vtk / .vtp / .stl), one per structure: no conversion</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="hspacer_1">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <widget class="QWidget" name="sceneInputsWidget">
-        <layout class="QFormLayout" name="form_5">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_3">
-           <property name="text">
-            <string>CT volume:</string>
+        <item row="0" column="1">
+         <widget class="QWidget" name="ctRow">
+          <layout class="QVBoxLayout" name="vbox_3">
+           <property name="leftMargin">
+            <number>0</number>
            </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <widget class="qMRMLNodeComboBox" name="ctSelector">
-           <property name="nodeTypes">
-            <stringlist>
-             <string>vtkMRMLScalarVolumeNode</string>
-            </stringlist>
+           <property name="topMargin">
+            <number>0</number>
            </property>
-           <property name="noneEnabled">
-            <bool>true</bool>
+           <property name="rightMargin">
+            <number>0</number>
            </property>
-           <property name="addEnabled">
-            <bool>false</bool>
+           <property name="bottomMargin">
+            <number>0</number>
            </property>
-           <property name="removeEnabled">
-            <bool>false</bool>
-           </property>
-           <property name="renameEnabled">
-            <bool>false</bool>
-           </property>
-           <property name="showChildNodeTypes">
-            <bool>false</bool>
-           </property>
-           <property name="toolTip">
-            <string>Optional: for display, and as the reference of the segmentation</string>
-           </property>
-           <property name="SlicerParameterName" stdset="0">
-            <string>ctVolume</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="label_4">
-           <property name="text">
-            <string>Segmentation:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="qMRMLNodeComboBox" name="segmentationSelector">
-           <property name="nodeTypes">
-            <stringlist>
-             <string>vtkMRMLSegmentationNode</string>
-            </stringlist>
-           </property>
-           <property name="noneEnabled">
-            <bool>true</bool>
-           </property>
-           <property name="addEnabled">
-            <bool>false</bool>
-           </property>
-           <property name="removeEnabled">
-            <bool>false</bool>
-           </property>
-           <property name="renameEnabled">
-            <bool>false</bool>
-           </property>
-           <property name="showChildNodeTypes">
-            <bool>false</bool>
-           </property>
-           <property name="toolTip">
-            <string>Segmentation with the lungs (or lobes), airways, arteries and veins</string>
-           </property>
-           <property name="SlicerParameterName" stdset="0">
-            <string>segmentation</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
-       <widget class="QWidget" name="filesInputsWidget">
-        <layout class="QFormLayout" name="form_10">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_8">
-           <property name="text">
-            <string>CT file:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <widget class="ctkPathLineEdit" name="ctPathLineEdit">
-           <property name="filters">
-            <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
-           </property>
-           <property name="toolTip">
-            <string>Optional CT image (.nrrd, .nii, .nii.gz, ...)</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="label_9">
-           <property name="text">
-            <string>Segmentation file:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="ctkPathLineEdit" name="segmentationPathLineEdit">
-           <property name="filters">
-            <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
-           </property>
-           <property name="toolTip">
-            <string>.seg.nrrd, or a labelmap .nrrd / .nii / .nii.gz (labels named by a colour table)</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0" colspan="2">
-          <layout class="QHBoxLayout" name="hbox_7">
            <item>
-            <spacer name="hspacer_6">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
+            <layout class="QHBoxLayout" name="hbox_2">
+             <property name="leftMargin">
+              <number>0</number>
              </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
+             <property name="topMargin">
+              <number>0</number>
              </property>
-            </spacer>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QRadioButton" name="ctSceneRadio">
+               <property name="text">
+                <string>Scene</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="ctFileRadio">
+               <property name="text">
+                <string>File</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="hspacer_1">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
            </item>
            <item>
-            <widget class="QPushButton" name="loadFilesButton">
-             <property name="text">
-              <string>Load into the scene</string>
+            <widget class="QStackedWidget" name="ctStack">
+             <property name="currentIndex">
+              <number>0</number>
              </property>
-             <property name="toolTip">
-              <string>Load the files into the scene; the segment selectors below fill in</string>
-             </property>
+             <widget class="qMRMLNodeComboBox" name="ctNodeSelector">
+              <property name="nodeTypes">
+               <stringlist>
+                <string>vtkMRMLScalarVolumeNode</string>
+               </stringlist>
+              </property>
+              <property name="noneEnabled">
+               <bool>true</bool>
+              </property>
+              <property name="addEnabled">
+               <bool>false</bool>
+              </property>
+              <property name="removeEnabled">
+               <bool>false</bool>
+              </property>
+              <property name="renameEnabled">
+               <bool>false</bool>
+              </property>
+              <property name="showChildNodeTypes">
+               <bool>false</bool>
+              </property>
+              <property name="toolTip">
+               <string>Optional: for display, and as the reference of the segmentation</string>
+              </property>
+             </widget>
+             <widget class="ctkPathLineEdit" name="ctPathEdit">
+              <property name="filters">
+               <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
+              </property>
+              <property name="toolTip">
+               <string>Optional CT image (.nrrd, .nii, .nii.gz, ...)</string>
+              </property>
+             </widget>
             </widget>
            </item>
           </layout>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
-       <widget class="QWidget" name="surfacesInputsWidget">
-        <layout class="QFormLayout" name="form_17">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_11">
-           <property name="text">
-            <string>Lung (inflated):</string>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_28">
+          <property name="text">
+           <string>Left lung:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QWidget" name="lungLeftRow">
+          <layout class="QVBoxLayout" name="vbox_7">
+           <property name="leftMargin">
+            <number>0</number>
            </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <widget class="ctkPathLineEdit" name="lungSurfacePath">
-           <property name="filters">
-            <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
+           <property name="topMargin">
+            <number>0</number>
            </property>
-           <property name="toolTip">
-            <string>Closed surface of the lung to collapse</string>
+           <property name="rightMargin">
+            <number>0</number>
            </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="label_12">
-           <property name="text">
-            <string>Airways:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="ctkPathLineEdit" name="airwaysSurfacePath">
-           <property name="filters">
-            <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
-           </property>
-           <property name="toolTip">
-            <string/>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="QLabel" name="label_13">
-           <property name="text">
-            <string>Arteries:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="1">
-          <widget class="ctkPathLineEdit" name="arteriesSurfacePath">
-           <property name="filters">
-            <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
-           </property>
-           <property name="toolTip">
-            <string/>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <widget class="QLabel" name="label_14">
-           <property name="text">
-            <string>Veins:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="1">
-          <widget class="ctkPathLineEdit" name="veinsSurfacePath">
-           <property name="filters">
-            <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
-           </property>
-           <property name="toolTip">
-            <string/>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="0">
-          <widget class="QLabel" name="label_15">
-           <property name="text">
-            <string>Collapsed lung:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="1">
-          <widget class="ctkPathLineEdit" name="collapsedSurfacePath">
-           <property name="filters">
-            <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
-           </property>
-           <property name="toolTip">
-            <string>Optional, for validation</string>
-           </property>
-          </widget>
-         </item>
-         <item row="5" column="0">
-          <widget class="QLabel" name="label_16">
-           <property name="text">
-            <string>Space if not in the file:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="5" column="1">
-          <widget class="QComboBox" name="surfaceSpaceComboBox">
-           <property name="toolTip">
-            <string>Coordinate space of files without a SPACE tag (Slicer &gt;= 4.11 writes LPS)</string>
+           <property name="bottomMargin">
+            <number>0</number>
            </property>
            <item>
-            <property name="text">
-             <string>LPS</string>
-            </property>
+            <layout class="QHBoxLayout" name="hbox_6">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QRadioButton" name="lungLeftSceneRadio">
+               <property name="text">
+                <string>Scene</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="lungLeftFileRadio">
+               <property name="text">
+                <string>File</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="hspacer_5">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
            </item>
            <item>
-            <property name="text">
-             <string>RAS</string>
-            </property>
+            <widget class="QStackedWidget" name="lungLeftStack">
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <widget class="qMRMLSegmentSelectorWidget" name="lungLeftSegmentSelector">
+              <property name="multiSelection">
+               <bool>true</bool>
+              </property>
+              <property name="noneEnabled">
+               <bool>true</bool>
+              </property>
+              <property name="segmentationNodeSelectorVisible">
+               <bool>true</bool>
+              </property>
+              <property name="toolTip">
+               <string>One segment, or several (e.g. the lobes): they are merged into one lung</string>
+              </property>
+             </widget>
+             <widget class="QWidget" name="lungLeftFilesPage">
+              <layout class="QHBoxLayout" name="hbox_4">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QLineEdit" name="lungLeftPathsEdit">
+                 <property name="placeholderText">
+                  <string>one or more files, separated by ;</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>One segment, or several (e.g. the lobes): they are merged into one lung</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QToolButton" name="lungLeftBrowseButton">
+                 <property name="text">
+                  <string>...</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>Choose one or more files</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </widget>
            </item>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
-       <widget class="QWidget" name="segmentsWidget">
-        <layout class="QFormLayout" name="form_26">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_20">
-           <property name="text">
-            <string>Lung to collapse:</string>
+          </layout>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label_29">
+          <property name="text">
+           <string>Right lung:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QWidget" name="lungRightRow">
+          <layout class="QVBoxLayout" name="vbox_11">
+           <property name="leftMargin">
+            <number>0</number>
            </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <layout class="QHBoxLayout" name="hbox_19">
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <layout class="QHBoxLayout" name="hbox_10">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QRadioButton" name="lungRightSceneRadio">
+               <property name="text">
+                <string>Scene</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="lungRightFileRadio">
+               <property name="text">
+                <string>File</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="hspacer_9">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QStackedWidget" name="lungRightStack">
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <widget class="qMRMLSegmentSelectorWidget" name="lungRightSegmentSelector">
+              <property name="multiSelection">
+               <bool>true</bool>
+              </property>
+              <property name="noneEnabled">
+               <bool>true</bool>
+              </property>
+              <property name="segmentationNodeSelectorVisible">
+               <bool>true</bool>
+              </property>
+              <property name="toolTip">
+               <string>One segment, or several (e.g. the lobes): they are merged into one lung</string>
+              </property>
+             </widget>
+             <widget class="QWidget" name="lungRightFilesPage">
+              <layout class="QHBoxLayout" name="hbox_8">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QLineEdit" name="lungRightPathsEdit">
+                 <property name="placeholderText">
+                  <string>one or more files, separated by ;</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>One segment, or several (e.g. the lobes): they are merged into one lung</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QToolButton" name="lungRightBrowseButton">
+                 <property name="text">
+                  <string>...</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>Choose one or more files</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="label_30">
+          <property name="text">
+           <string>Airways:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QWidget" name="airwaysRow">
+          <layout class="QVBoxLayout" name="vbox_14">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <layout class="QHBoxLayout" name="hbox_13">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QRadioButton" name="airwaysSceneRadio">
+               <property name="text">
+                <string>Scene</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="airwaysFileRadio">
+               <property name="text">
+                <string>File</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="hspacer_12">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QStackedWidget" name="airwaysStack">
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <widget class="qMRMLSegmentSelectorWidget" name="airwaysSegmentSelector">
+              <property name="multiSelection">
+               <bool>false</bool>
+              </property>
+              <property name="noneEnabled">
+               <bool>true</bool>
+              </property>
+              <property name="segmentationNodeSelectorVisible">
+               <bool>true</bool>
+              </property>
+              <property name="toolTip">
+               <string/>
+              </property>
+             </widget>
+             <widget class="ctkPathLineEdit" name="airwaysPathEdit">
+              <property name="filters">
+               <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
+              </property>
+              <property name="toolTip">
+               <string>Segmentation, labelmap or surface (.seg.nrrd, .nrrd, .nii, .nii.gz, .vtk, .vtp, .stl)</string>
+              </property>
+             </widget>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <widget class="QLabel" name="label_31">
+          <property name="text">
+           <string>Arteries:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="QWidget" name="arteriesRow">
+          <layout class="QVBoxLayout" name="vbox_17">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <layout class="QHBoxLayout" name="hbox_16">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QRadioButton" name="arteriesSceneRadio">
+               <property name="text">
+                <string>Scene</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="arteriesFileRadio">
+               <property name="text">
+                <string>File</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="hspacer_15">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QStackedWidget" name="arteriesStack">
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <widget class="qMRMLSegmentSelectorWidget" name="arteriesSegmentSelector">
+              <property name="multiSelection">
+               <bool>false</bool>
+              </property>
+              <property name="noneEnabled">
+               <bool>true</bool>
+              </property>
+              <property name="segmentationNodeSelectorVisible">
+               <bool>true</bool>
+              </property>
+              <property name="toolTip">
+               <string/>
+              </property>
+             </widget>
+             <widget class="ctkPathLineEdit" name="arteriesPathEdit">
+              <property name="filters">
+               <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
+              </property>
+              <property name="toolTip">
+               <string>Segmentation, labelmap or surface (.seg.nrrd, .nrrd, .nii, .nii.gz, .vtk, .vtp, .stl)</string>
+              </property>
+             </widget>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="5" column="0">
+         <widget class="QLabel" name="label_32">
+          <property name="text">
+           <string>Veins:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="1">
+         <widget class="QWidget" name="veinsRow">
+          <layout class="QVBoxLayout" name="vbox_20">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <layout class="QHBoxLayout" name="hbox_19">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QRadioButton" name="veinsSceneRadio">
+               <property name="text">
+                <string>Scene</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="veinsFileRadio">
+               <property name="text">
+                <string>File</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="hspacer_18">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QStackedWidget" name="veinsStack">
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <widget class="qMRMLSegmentSelectorWidget" name="veinsSegmentSelector">
+              <property name="multiSelection">
+               <bool>false</bool>
+              </property>
+              <property name="noneEnabled">
+               <bool>true</bool>
+              </property>
+              <property name="segmentationNodeSelectorVisible">
+               <bool>true</bool>
+              </property>
+              <property name="toolTip">
+               <string/>
+              </property>
+             </widget>
+             <widget class="ctkPathLineEdit" name="veinsPathEdit">
+              <property name="filters">
+               <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
+              </property>
+              <property name="toolTip">
+               <string>Segmentation, labelmap or surface (.seg.nrrd, .nrrd, .nii, .nii.gz, .vtk, .vtp, .stl)</string>
+              </property>
+             </widget>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="6" column="0">
+         <widget class="QLabel" name="label_33">
+          <property name="text">
+           <string>Lung to collapse:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="6" column="1">
+         <widget class="QWidget" name="sideWidget">
+          <layout class="QHBoxLayout" name="hbox_22">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
            <item>
             <widget class="QRadioButton" name="sideLeftRadio">
              <property name="text">
@@ -402,7 +733,7 @@
             </widget>
            </item>
            <item>
-            <spacer name="hspacer_18">
+            <spacer name="hspacer_21">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
@@ -425,249 +756,179 @@
             </widget>
            </item>
           </layout>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="label_21">
-           <property name="text">
-            <string>Lung segment(s):</string>
+         </widget>
+        </item>
+        <item row="7" column="0">
+         <widget class="QLabel" name="label_34">
+          <property name="text">
+           <string>Inflated volume:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="7" column="1">
+         <widget class="QLabel" name="inflatedVolumeLabel">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="8" column="0" colspan="2">
+         <widget class="QCheckBox" name="compareCheckBox">
+          <property name="text">
+           <string>Compare with a collapsed lung (validation)</string>
+          </property>
+          <property name="SlicerParameterName" stdset="0">
+           <string>compareCollapsed</string>
+          </property>
+         </widget>
+        </item>
+        <item row="9" column="0">
+         <widget class="QLabel" name="collapsedLabel">
+          <property name="text">
+           <string>Collapsed lung:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="9" column="1">
+         <widget class="QWidget" name="collapsedRow">
+          <layout class="QVBoxLayout" name="vbox_26">
+           <property name="leftMargin">
+            <number>0</number>
            </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="qMRMLSegmentSelectorWidget" name="lungSegmentSelector">
-           <property name="multiSelection">
-            <bool>true</bool>
+           <property name="topMargin">
+            <number>0</number>
            </property>
-           <property name="segmentationNodeSelectorVisible">
-            <bool>false</bool>
+           <property name="rightMargin">
+            <number>0</number>
            </property>
-           <property name="noneEnabled">
-            <bool>false</bool>
+           <property name="bottomMargin">
+            <number>0</number>
            </property>
-           <property name="toolTip">
-            <string>The lung, or its lobes (merged with a closing to fill the fissures)</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="QLabel" name="label_22">
-           <property name="text">
-            <string>Airways:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="1">
-          <widget class="qMRMLSegmentSelectorWidget" name="airwaysSegmentSelector">
-           <property name="multiSelection">
-            <bool>false</bool>
-           </property>
-           <property name="segmentationNodeSelectorVisible">
-            <bool>false</bool>
-           </property>
-           <property name="noneEnabled">
-            <bool>true</bool>
-           </property>
-           <property name="toolTip">
-            <string/>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <widget class="QLabel" name="label_23">
-           <property name="text">
-            <string>Arteries:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="1">
-          <widget class="qMRMLSegmentSelectorWidget" name="arteriesSegmentSelector">
-           <property name="multiSelection">
-            <bool>false</bool>
-           </property>
-           <property name="segmentationNodeSelectorVisible">
-            <bool>false</bool>
-           </property>
-           <property name="noneEnabled">
-            <bool>true</bool>
-           </property>
-           <property name="toolTip">
-            <string/>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="0">
-          <widget class="QLabel" name="label_24">
-           <property name="text">
-            <string>Veins:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="1">
-          <widget class="qMRMLSegmentSelectorWidget" name="veinsSegmentSelector">
-           <property name="multiSelection">
-            <bool>false</bool>
-           </property>
-           <property name="segmentationNodeSelectorVisible">
-            <bool>false</bool>
-           </property>
-           <property name="noneEnabled">
-            <bool>true</bool>
-           </property>
-           <property name="toolTip">
-            <string/>
-           </property>
-          </widget>
-         </item>
-         <item row="5" column="0">
-          <widget class="QLabel" name="label_25">
-           <property name="text">
-            <string>Inflated volume:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="5" column="1">
-          <widget class="QLabel" name="inflatedVolumeLabel">
-           <property name="text">
-            <string>-</string>
-           </property>
-           <property name="wordWrap">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="compareCheckBox">
-        <property name="text">
-         <string>Compare with a collapsed lung (validation)</string>
-        </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>compareCollapsed</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QWidget" name="compareWidget">
-        <layout class="QFormLayout" name="form_28">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item row="0" column="0">
-          <widget class="QLabel" name="collapsedSegmentationLabel">
-           <property name="text">
-            <string>Segmentation:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <widget class="qMRMLNodeComboBox" name="collapsedSegmentationSelector">
-           <property name="nodeTypes">
-            <stringlist>
-             <string>vtkMRMLSegmentationNode</string>
-            </stringlist>
-           </property>
-           <property name="noneEnabled">
-            <bool>true</bool>
-           </property>
-           <property name="addEnabled">
-            <bool>false</bool>
-           </property>
-           <property name="removeEnabled">
-            <bool>false</bool>
-           </property>
-           <property name="renameEnabled">
-            <bool>false</bool>
-           </property>
-           <property name="showChildNodeTypes">
-            <bool>false</bool>
-           </property>
-           <property name="toolTip">
-            <string>Segmentation with the collapsed lung (same coordinates as the inflated one)</string>
-           </property>
-           <property name="SlicerParameterName" stdset="0">
-            <string>collapsedSegmentation</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="collapsedFileLabel">
-           <property name="text">
-            <string>File:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <layout class="QHBoxLayout" name="hbox_27">
            <item>
-            <widget class="ctkPathLineEdit" name="collapsedPathLineEdit">
-             <property name="filters">
-              <set>ctkPathLineEdit::Files|ctkPathLineEdit::Readable</set>
+            <layout class="QHBoxLayout" name="hbox_25">
+             <property name="leftMargin">
+              <number>0</number>
              </property>
-             <property name="toolTip">
-              <string>Collapsed lung: .seg.nrrd, labelmap or surface file</string>
+             <property name="topMargin">
+              <number>0</number>
              </property>
-            </widget>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QRadioButton" name="collapsedSceneRadio">
+               <property name="text">
+                <string>Scene</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="collapsedFileRadio">
+               <property name="text">
+                <string>File</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="hspacer_24">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
            </item>
            <item>
-            <widget class="QPushButton" name="loadCollapsedButton">
-             <property name="text">
-              <string>Load</string>
+            <widget class="QStackedWidget" name="collapsedStack">
+             <property name="currentIndex">
+              <number>0</number>
              </property>
+             <widget class="qMRMLSegmentSelectorWidget" name="collapsedSegmentSelector">
+              <property name="multiSelection">
+               <bool>true</bool>
+              </property>
+              <property name="noneEnabled">
+               <bool>true</bool>
+              </property>
+              <property name="segmentationNodeSelectorVisible">
+               <bool>true</bool>
+              </property>
+              <property name="toolTip">
+               <string>The collapsed lung (several segments are merged)</string>
+              </property>
+             </widget>
+             <widget class="QWidget" name="collapsedFilesPage">
+              <layout class="QHBoxLayout" name="hbox_23">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QLineEdit" name="collapsedPathsEdit">
+                 <property name="placeholderText">
+                  <string>one or more files, separated by ;</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>The collapsed lung (several files are merged)</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QToolButton" name="collapsedBrowseButton">
+                 <property name="text">
+                  <string>...</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>Choose one or more files</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
             </widget>
            </item>
           </layout>
-         </item>
-         <item row="2" column="0">
-          <widget class="QLabel" name="collapsedSegmentLabel">
-           <property name="text">
-            <string>Collapsed lung segment:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="1">
-          <widget class="qMRMLSegmentSelectorWidget" name="collapsedSegmentSelector">
-           <property name="multiSelection">
-            <bool>false</bool>
-           </property>
-           <property name="segmentationNodeSelectorVisible">
-            <bool>false</bool>
-           </property>
-           <property name="noneEnabled">
-            <bool>true</bool>
-           </property>
-           <property name="toolTip">
-            <string/>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0" colspan="2">
-          <widget class="QLabel" name="compareNoteLabel">
-           <property name="text">
-            <string>Same coordinates as the inflated lung (same scan, or registered beforehand in Slicer): the extension does not register CTs.</string>
-           </property>
-           <property name="wordWrap">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
+         </widget>
+        </item>
+        <item row="10" column="0" colspan="2">
+         <widget class="QLabel" name="compareNoteLabel">
+          <property name="text">
+           <string>Same coordinates as the inflated lung (same scan, or registered beforehand in Slicer): the extension does not register CTs.</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
       <item>
        <widget class="QCheckBox" name="removeLoadedCheckBox">
         <property name="text">
-         <string>Remove loaded inputs after the run</string>
+         <string>Remove the inputs loaded from files after the run</string>
         </property>
         <property name="toolTip">
          <string>Remove from the scene the files loaded by this module once the run is done</string>
@@ -695,180 +956,500 @@
      <property name="collapsed">
       <bool>false</bool>
      </property>
-     <layout class="QFormLayout" name="form_38">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_34">
-        <property name="text">
-         <string>Collapse %:</string>
+     <layout class="QVBoxLayout" name="vbox_58">
+      <item>
+       <layout class="QFormLayout" name="form_40">
+        <property name="leftMargin">
+         <number>0</number>
         </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="ctkSliderWidget" name="collapsePercentSlider">
-        <property name="minimum">
-         <double>0.0</double>
+        <property name="topMargin">
+         <number>0</number>
         </property>
-        <property name="maximum">
-         <double>95.0</double>
+        <property name="rightMargin">
+         <number>0</number>
         </property>
-        <property name="singleStep">
-         <double>1.0</double>
+        <property name="bottomMargin">
+         <number>0</number>
         </property>
-        <property name="pageStep">
-         <double>5.0</double>
-        </property>
-        <property name="decimals">
-         <number>1</number>
-        </property>
-        <property name="value">
-         <double>50.0</double>
-        </property>
-        <property name="suffix">
-         <string> %</string>
-        </property>
-        <property name="toolTip">
-         <string>100 x (1 - V collapsed / V inflated)</string>
-        </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>collapsePercent</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_35">
-        <property name="text">
-         <string>... as volume:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <layout class="QHBoxLayout" name="hbox_31">
-        <item>
-         <widget class="QDoubleSpinBox" name="collapseVolumeSpinBox">
-          <property name="decimals">
-           <number>0</number>
-          </property>
-          <property name="maximum">
-           <double>10000.0</double>
-          </property>
-          <property name="suffix">
-           <string> mL</string>
-          </property>
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="toolTip">
-           <string>Collapsed volume, linked to the % once the inflated volume is known</string>
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_39">
+          <property name="text">
+           <string>Drive the collapse by:</string>
           </property>
          </widget>
         </item>
-        <item>
-         <spacer name="hspacer_30">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </item>
-      <item row="2" column="0" colspan="2">
-       <widget class="QLabel" name="collapseRangeLabel">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="0" colspan="2">
-       <widget class="QCheckBox" name="useTargetCollapseCheckBox">
-        <property name="text">
-         <string>Use the collapse % of the collapsed lung</string>
-        </property>
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>useTargetCollapse</string>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="0">
-       <widget class="QLabel" name="label_36">
-        <property name="text">
-         <string>Position during the collapse:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="1">
-       <widget class="QComboBox" name="positionComboBox">
-        <property name="toolTip">
-         <string/>
-        </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>position</string>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="0" colspan="2">
-       <widget class="QLabel" name="positionNoteLabel">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="6" column="0">
-       <widget class="QLabel" name="label_37">
-        <property name="text">
-         <string>Frames:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="6" column="1">
-       <layout class="QHBoxLayout" name="hbox_33">
-        <item>
-         <widget class="QSpinBox" name="framesSpinBox">
-          <property name="minimum">
-           <number>0</number>
-          </property>
-          <property name="maximum">
-           <number>60</number>
-          </property>
-          <property name="value">
-           <number>30</number>
-          </property>
-          <property name="toolTip">
-           <string>Frames of the collapse sequence (0 = only the final shape)</string>
-          </property>
-          <property name="SlicerParameterName" stdset="0">
-           <string>frames</string>
-          </property>
+        <item row="0" column="1">
+         <widget class="QWidget" name="driveWidget">
+          <layout class="QHBoxLayout" name="hbox_38">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QRadioButton" name="drivePercentRadio">
+             <property name="text">
+              <string>Collapse %</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+             <property name="toolTip">
+              <string>Give the collapse %: the run searches the pressure p0 that gives that volume</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="drivePressureRadio">
+             <property name="text">
+              <string>Pressure p0</string>
+             </property>
+             <property name="toolTip">
+              <string>Give the pressure p0 and E: the collapse % is the result of the run</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="hspacer_37">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
          </widget>
         </item>
-        <item>
-         <spacer name="hspacer_32">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
        </layout>
+      </item>
+      <item>
+       <widget class="QGroupBox" name="collapseGroupBox">
+        <property name="title">
+         <string>Collapse</string>
+        </property>
+        <layout class="QVBoxLayout" name="vbox_45">
+         <item>
+          <widget class="QWidget" name="percentRowsWidget">
+           <layout class="QFormLayout" name="form_43">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="collapsePercentLabel">
+              <property name="text">
+               <string>Collapse:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="ctkSliderWidget" name="collapsePercentSlider">
+              <property name="minimum">
+               <double>0.0</double>
+              </property>
+              <property name="maximum">
+               <double>95.0</double>
+              </property>
+              <property name="singleStep">
+               <double>1.0</double>
+              </property>
+              <property name="pageStep">
+               <double>5.0</double>
+              </property>
+              <property name="decimals">
+               <number>1</number>
+              </property>
+              <property name="value">
+               <double>50.0</double>
+              </property>
+              <property name="suffix">
+               <string> %</string>
+              </property>
+              <property name="toolTip">
+               <string>100 x (1 - V collapsed / V inflated)</string>
+              </property>
+              <property name="SlicerParameterName" stdset="0">
+               <string>collapsePercent</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="collapseVolumeLabel">
+              <property name="text">
+               <string>Collapsed volume:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <layout class="QHBoxLayout" name="hbox_42">
+              <item>
+               <widget class="QDoubleSpinBox" name="collapseVolumeSpinBox">
+                <property name="decimals">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <double>10000.0</double>
+                </property>
+                <property name="suffix">
+                 <string> mL</string>
+                </property>
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="toolTip">
+                 <string>The same as a volume, once the inflated volume is known</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="inflatedOfLabel">
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="wordWrap">
+                 <bool>false</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="hspacer_41">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item row="2" column="0" colspan="2">
+             <widget class="QCheckBox" name="useTargetCollapseCheckBox">
+              <property name="text">
+               <string>Use the collapse % of the collapsed lung</string>
+              </property>
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="SlicerParameterName" stdset="0">
+               <string>useTargetCollapse</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="estimateRowsWidget">
+           <layout class="QFormLayout" name="form_44">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="collapseEstimateTitle">
+              <property name="text">
+               <string>Expected collapse:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="collapseEstimateLabel">
+              <property name="text">
+               <string/>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="collapseRangeLabel">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGroupBox" name="forcesGroupBox">
+        <property name="title">
+         <string>Stiffness and pressure</string>
+        </property>
+        <layout class="QFormLayout" name="form_52">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_50">
+           <property name="text">
+            <string>Stiffness E:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <layout class="QHBoxLayout" name="hbox_47">
+           <item>
+            <widget class="QDoubleSpinBox" name="eSpinBox">
+             <property name="decimals">
+              <number>0</number>
+             </property>
+             <property name="minimum">
+              <double>10.0</double>
+             </property>
+             <property name="maximum">
+              <double>100000.0</double>
+             </property>
+             <property name="singleStep">
+              <double>50.0</double>
+             </property>
+             <property name="value">
+              <double>1000.0</double>
+             </property>
+             <property name="suffix">
+              <string> Pa</string>
+             </property>
+             <property name="toolTip">
+              <string>Young's modulus of the lung</string>
+             </property>
+             <property name="SlicerParameterName" stdset="0">
+              <string>eValue</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="linkECheckBox">
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+             <property name="text">
+              <string>from the collapse % (calibrated rule)</string>
+             </property>
+             <property name="toolTip">
+              <string>E follows the collapse % (and back): log10 E = a + b x collapse %</string>
+             </property>
+             <property name="SlicerParameterName" stdset="0">
+              <string>linkE</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="hspacer_46">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_51">
+           <property name="text">
+            <string>Pressure p0:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <layout class="QHBoxLayout" name="hbox_49">
+           <item>
+            <widget class="QDoubleSpinBox" name="p0SpinBox">
+             <property name="decimals">
+              <number>0</number>
+             </property>
+             <property name="minimum">
+              <double>1.0</double>
+             </property>
+             <property name="maximum">
+              <double>50000.0</double>
+             </property>
+             <property name="singleStep">
+              <double>10.0</double>
+             </property>
+             <property name="value">
+              <double>330.0</double>
+             </property>
+             <property name="suffix">
+              <string> Pa</string>
+             </property>
+             <property name="toolTip">
+              <string>Pressure released at the collapse (p0 = q0 E)</string>
+             </property>
+             <property name="SlicerParameterName" stdset="0">
+              <string>p0Value</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="p0CmLabel">
+             <property name="text">
+              <string/>
+             </property>
+             <property name="wordWrap">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="hspacer_48">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+         <item row="2" column="0" colspan="2">
+          <widget class="QLabel" name="estimateLabel">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGroupBox" name="sequenceGroupBox">
+        <property name="title">
+         <string>Position and sequence</string>
+        </property>
+        <layout class="QFormLayout" name="form_57">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_55">
+           <property name="text">
+            <string>Position during the collapse:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QComboBox" name="positionComboBox">
+           <property name="toolTip">
+            <string/>
+           </property>
+           <property name="SlicerParameterName" stdset="0">
+            <string>position</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0" colspan="2">
+          <widget class="QLabel" name="positionNoteLabel">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_56">
+           <property name="text">
+            <string>Sequence:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <layout class="QHBoxLayout" name="hbox_54">
+           <item>
+            <widget class="QSpinBox" name="framesSpinBox">
+             <property name="minimum">
+              <number>0</number>
+             </property>
+             <property name="maximum">
+              <number>60</number>
+             </property>
+             <property name="value">
+              <number>30</number>
+             </property>
+             <property name="suffix">
+              <string> frames</string>
+             </property>
+             <property name="toolTip">
+              <string>Frames of the collapse sequence (0 = only the final shape)</string>
+             </property>
+             <property name="SlicerParameterName" stdset="0">
+              <string>frames</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="hspacer_53">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+         <item row="3" column="0" colspan="2">
+          <widget class="QLabel" name="framesNoteLabel">
+           <property name="text">
+            <string>From the inflated lung (load 0 %) to the collapsed one (load 100 %); 0 = final shape only.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
       </item>
      </layout>
     </widget>
@@ -881,65 +1462,16 @@
      <property name="collapsed">
       <bool>true</bool>
      </property>
-     <layout class="QFormLayout" name="form_54">
+     <layout class="QFormLayout" name="form_69">
       <item row="0" column="0">
-       <widget class="QLabel" name="label_48">
-        <property name="text">
-         <string>Stiffness:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <layout class="QHBoxLayout" name="hbox_39">
-        <item>
-         <widget class="QComboBox" name="stiffnessComboBox">
-          <property name="toolTip">
-           <string/>
-          </property>
-          <property name="SlicerParameterName" stdset="0">
-           <string>stiffness</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QDoubleSpinBox" name="fixedESpinBox">
-          <property name="decimals">
-           <number>0</number>
-          </property>
-          <property name="minimum">
-           <double>10.0</double>
-          </property>
-          <property name="maximum">
-           <double>100000.0</double>
-          </property>
-          <property name="singleStep">
-           <double>50.0</double>
-          </property>
-          <property name="value">
-           <double>1000.0</double>
-          </property>
-          <property name="suffix">
-           <string> Pa</string>
-          </property>
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="SlicerParameterName" stdset="0">
-           <string>fixedE</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_49">
+       <widget class="QLabel" name="label_65">
         <property name="text">
          <string>Poisson's ratio:</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
-       <layout class="QHBoxLayout" name="hbox_41">
+      <item row="0" column="1">
+       <layout class="QHBoxLayout" name="hbox_60">
         <item>
          <widget class="QDoubleSpinBox" name="nuSpinBox">
           <property name="decimals">
@@ -963,7 +1495,7 @@
          </widget>
         </item>
         <item>
-         <spacer name="hspacer_40">
+         <spacer name="hspacer_59">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -977,14 +1509,14 @@
         </item>
        </layout>
       </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_50">
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_66">
         <property name="text">
          <string>CT position:</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="1">
+      <item row="1" column="1">
        <widget class="QComboBox" name="ctPositionComboBox">
         <property name="toolTip">
          <string/>
@@ -994,15 +1526,15 @@
         </property>
        </widget>
       </item>
-      <item row="3" column="0">
-       <widget class="QLabel" name="label_51">
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_67">
         <property name="text">
          <string>Wall margin:</string>
         </property>
        </widget>
       </item>
-      <item row="3" column="1">
-       <layout class="QHBoxLayout" name="hbox_43">
+      <item row="2" column="1">
+       <layout class="QHBoxLayout" name="hbox_62">
         <item>
          <widget class="QDoubleSpinBox" name="wallMarginSpinBox">
           <property name="decimals">
@@ -1029,7 +1561,7 @@
          </widget>
         </item>
         <item>
-         <spacer name="hspacer_42">
+         <spacer name="hspacer_61">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -1043,66 +1575,14 @@
         </item>
        </layout>
       </item>
-      <item row="4" column="0">
-       <widget class="QLabel" name="label_52">
-        <property name="text">
-         <string>Lobe closing:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="1">
-       <layout class="QHBoxLayout" name="hbox_45">
-        <item>
-         <widget class="QDoubleSpinBox" name="closingSpinBox">
-          <property name="decimals">
-           <number>1</number>
-          </property>
-          <property name="minimum">
-           <double>0.0</double>
-          </property>
-          <property name="maximum">
-           <double>5.0</double>
-          </property>
-          <property name="singleStep">
-           <double>0.5</double>
-          </property>
-          <property name="value">
-           <double>1.5</double>
-          </property>
-          <property name="suffix">
-           <string> mm</string>
-          </property>
-          <property name="toolTip">
-           <string>Closing applied after merging the lobes, to fill the fissure gaps</string>
-          </property>
-          <property name="SlicerParameterName" stdset="0">
-           <string>closingMm</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="hspacer_44">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </item>
-      <item row="5" column="0">
-       <widget class="QLabel" name="label_53">
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_68">
         <property name="text">
          <string>Device:</string>
         </property>
        </widget>
       </item>
-      <item row="5" column="1">
+      <item row="3" column="1">
        <widget class="QComboBox" name="deviceComboBox">
         <property name="toolTip">
          <string/>
@@ -1112,7 +1592,7 @@
         </property>
        </widget>
       </item>
-      <item row="6" column="0" colspan="2">
+      <item row="4" column="0" colspan="2">
        <widget class="QCheckBox" name="rebuildGeometryCheckBox">
         <property name="text">
          <string>Rebuild the geometry (surface, hilum, mesh)</string>
@@ -1122,8 +1602,8 @@
         </property>
        </widget>
       </item>
-      <item row="7" column="0" colspan="2">
-       <layout class="QHBoxLayout" name="hbox_47">
+      <item row="5" column="0" colspan="2">
+       <layout class="QHBoxLayout" name="hbox_64">
         <item>
          <widget class="QPushButton" name="showConfigButton">
           <property name="text">
@@ -1135,7 +1615,7 @@
          </widget>
         </item>
         <item>
-         <spacer name="hspacer_46">
+         <spacer name="hspacer_63">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -1160,9 +1640,9 @@
      <property name="collapsed">
       <bool>false</bool>
      </property>
-     <layout class="QVBoxLayout" name="vbox_64">
+     <layout class="QVBoxLayout" name="vbox_79">
       <item>
-       <layout class="QFormLayout" name="form_56">
+       <layout class="QFormLayout" name="form_71">
         <property name="leftMargin">
          <number>0</number>
         </property>
@@ -1176,7 +1656,7 @@
          <number>0</number>
         </property>
         <item row="0" column="0">
-         <widget class="QLabel" name="label_55">
+         <widget class="QLabel" name="label_70">
           <property name="text">
            <string>Output folder:</string>
           </property>
@@ -1205,7 +1685,7 @@
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="hbox_57">
+       <layout class="QHBoxLayout" name="hbox_72">
         <item>
          <widget class="QPushButton" name="applyButton">
           <property name="text">
@@ -1279,7 +1759,7 @@
         <property name="collapsed">
          <bool>true</bool>
         </property>
-        <layout class="QVBoxLayout" name="vbox_58">
+        <layout class="QVBoxLayout" name="vbox_73">
          <item>
           <widget class="QPlainTextEdit" name="logTextEdit">
            <property name="readOnly">
@@ -1305,7 +1785,7 @@
         <property name="visible">
          <bool>false</bool>
         </property>
-        <layout class="QVBoxLayout" name="vbox_62">
+        <layout class="QVBoxLayout" name="vbox_77">
          <property name="leftMargin">
           <number>0</number>
          </property>
@@ -1320,7 +1800,7 @@
          </property>
          <item>
           <widget class="QWidget" name="sequencePlaceholder">
-           <layout class="QVBoxLayout" name="vbox_59">
+           <layout class="QVBoxLayout" name="vbox_74">
             <property name="leftMargin">
              <number>0</number>
             </property>
@@ -1337,7 +1817,7 @@
           </widget>
          </item>
          <item>
-          <layout class="QHBoxLayout" name="hbox_61">
+          <layout class="QHBoxLayout" name="hbox_76">
            <item>
             <widget class="QLabel" name="colorByLabel">
              <property name="text">
@@ -1363,7 +1843,7 @@
             </widget>
            </item>
            <item>
-            <spacer name="hspacer_60">
+            <spacer name="hspacer_75">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
@@ -1388,7 +1868,7 @@
         <property name="collapsed">
          <bool>false</bool>
         </property>
-        <layout class="QHBoxLayout" name="hbox_63">
+        <layout class="QHBoxLayout" name="hbox_78">
          <item>
           <widget class="QCheckBox" name="showCtCheckBox">
            <property name="text">
@@ -1446,7 +1926,7 @@
     </widget>
    </item>
    <item>
-    <spacer name="spacer_65">
+    <spacer name="spacer_80">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>
@@ -1510,7 +1990,7 @@
   <connection>
    <sender>LungCollapse</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>ctSelector</receiver>
+   <receiver>ctNodeSelector</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -1526,7 +2006,7 @@
   <connection>
    <sender>LungCollapse</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>segmentationSelector</receiver>
+   <receiver>lungLeftSegmentSelector</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -1542,7 +2022,7 @@
   <connection>
    <sender>LungCollapse</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>lungSegmentSelector</receiver>
+   <receiver>lungRightSegmentSelector</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -1591,22 +2071,6 @@
    <sender>LungCollapse</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
    <receiver>veinsSegmentSelector</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>10</x>
-     <y>10</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>10</x>
-     <y>10</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>LungCollapse</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>collapsedSegmentationSelector</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
    <hints>
     <hint type="sourcelabel">

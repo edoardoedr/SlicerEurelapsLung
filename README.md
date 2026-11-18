@@ -13,7 +13,11 @@ Module **Lung Collapse**, category *Chest*. Tested on Slicer 5.13 (Apple Silicon
    - the pulmonary veins.
 
    The side, the lung segments (lobes are merged) and the three trees are pre-selected from the segment names. Optionally, add the real collapsed lung, in the same coordinates, to measure the error.
-2. **Collapse.** Set the collapse % (or take it from the collapsed lung), the position during the collapse and the number of frames.
+2. **Collapse.** Drive the collapse by one of two quantities; the other one is then a result.
+   - **Collapse %:** set it, or take it from the collapsed lung (the default when one is given). E follows it through the calibrated rule, unless unlinked. p0 is shown as the rules' estimate, and the run finds the exact value.
+   - **Pressure p0:** set p0 and E. The collapse % is shown as the rules' estimate, and the run gives the real one.
+
+   Also set the position during the collapse and the number of frames.
 3. **Apply.**
    - The first run builds the model geometry: surface, hilum, Netgen mesh and wall. That takes about 30 s.
    - A new collapse % on the same inputs reuses the geometry and only re-solves.
@@ -31,7 +35,7 @@ On karl01 (Apple M2, Slicer 5.13 arm64), a whole run with the geometry, 40 % col
 Add the `LungCollapse` folder to *Edit → Application settings → Modules → Additional module paths*, or build the extension. The first *Apply* offers to install:
 
 - **torch**, from the *PyTorch* extension (Extensions Manager). On a Mac, use the **Apple Silicon** build of Slicer. The Intel build gets only torch 2.2.2, and the PyTorch extension then downgrades Slicer's numpy to 1.x.
-- **eurelaps_lung** and its prediction dependencies (pyacvd, netgen-mesher), with pip, from `eurelaps-lung @ git+https://github.com/edoardoedr/lung_collapse.git@v0.1.0`. The repository is private, so pip needs credentials. Another source can be set with the environment variable `LUNGCOLLAPSE_PACKAGE_SPEC` or the setting `LungCollapse/PackageSpec`, for example a local folder or a wheel.
+- **eurelaps_lung** and its prediction dependencies (pyacvd, netgen-mesher), with pip, from `eurelaps-lung @ git+https://github.com/edoardoedr/lung_collapse.git@v0.1.1`. Another source can be set with the environment variable `LUNGCOLLAPSE_PACKAGE_SPEC` or the setting `LungCollapse/PackageSpec`, for example a local folder or a wheel.
 
 Slicer's VTK is used; no second VTK is installed. The extension checks this.
 
@@ -52,6 +56,15 @@ Slicer's VTK is used; no second VTK is installed. The extension checks this.
 | `LungCollapseLib/dependencies.py` | first-use installation |
 
 Self-test: *Developer mode → Reload and Test*, or `LungCollapseTest().runTest()`. It uses a synthetic chest and the fake backend.
+
+## The rules
+
+The calibrated rules come from the package (`eurelaps_lung.predict.rules()`, the file `eurelaps_lung/data/rules.json`):
+
+- **E rule:** log₁₀ E = a + b × collapse %.
+- **q0 rule, for the estimates:** log₁₀ q0 = a + b × collapse %, with q0 = p0 / E.
+
+After new fits, `main_calibrate.py --make-default` rewrites the file, and the package gets a new version that this extension pins (`PACKAGE_VERSION`). To try another rule file without a new version, set `EURELAPS_RULES=FILE` in Slicer's environment.
 
 ## Model and limits
 

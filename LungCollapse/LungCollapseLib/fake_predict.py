@@ -97,6 +97,8 @@ def main(argv=None):
     ap.add_argument("--frames", type=int)
     ap.add_argument("--steps", nargs="+")
     ap.add_argument("--set", nargs="+", default=[])
+    ap.add_argument("--p0", type=float)          # the pressure is also in the config (physics.collapse p0_Pa)
+    ap.add_argument("--E", type=float)
     ap.add_argument("--delay", type=float, default=float(os.environ.get("LUNGCOLLAPSE_FAKE_DELAY", "0.15")))
     ap.add_argument("--fail", action="store_true", help="exit with an error after the hilum (to test)")
     args = ap.parse_args(argv)
@@ -190,7 +192,14 @@ def main(argv=None):
         pct = 100.0 * (1.0 - volume(collapsed) / V0)
         log.info("collapse %% of the collapsed lung (inputs.collapsed): %.2f %%", pct)
     else:
-        pct = float(args.collapse) if args.collapse is not None else 50.0
+        coll = cfg.get("physics", {}).get("collapse", {})
+        E_cfg = cfg.get("physics", {}).get("E_Pa")
+        if args.collapse is not None:
+            pct = float(args.collapse)
+        elif "p0_Pa" in coll and isinstance(E_cfg, (int, float)):     # p0 given: the module's q0 estimate
+            pct = min(max((math.log10(coll["p0_Pa"] / E_cfg) + 0.9351) / 0.010662, 0.0), 95.0)
+        else:
+            pct = 100.0 * (1.0 - coll.get("volume_ratio", 0.5))
     ratio = 1.0 - pct / 100.0
     log.info("=== collapse ===")
     E = 10.0 ** (3.5380 - 0.012883 * pct)

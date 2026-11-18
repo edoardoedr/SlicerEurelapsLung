@@ -14,7 +14,7 @@ import qt
 import slicer
 
 PACKAGE = "eurelaps_lung"
-PACKAGE_VERSION = "0.1.0"
+PACKAGE_VERSION = "0.1.1"
 DEFAULT_SPEC = "eurelaps-lung @ git+https://github.com/edoardoedr/lung_collapse.git@v%s" % PACKAGE_VERSION
 SETTING_SPEC = "LungCollapse/PackageSpec"
 
@@ -45,12 +45,20 @@ def vtk_ok():
     return path.startswith(os.path.realpath(slicer.app.slicerHome).replace("\\", "/")) and "site-packages" not in path
 
 
+def _version_tuple(v):
+    try:
+        return tuple(int(x) for x in str(v).split(".")[:3])
+    except ValueError:
+        return (0,)
+
+
 def missing():
+    """What has to be installed: torch, and the package when absent or older than PACKAGE_VERSION."""
     s = status()
     m = []
     if not s["torch"]:
         m.append("torch")
-    if not s["package"]:
+    if not s["package"] or _version_tuple(s["version"]) < _version_tuple(PACKAGE_VERSION):
         m.append(PACKAGE)
     return m
 
@@ -62,8 +70,9 @@ def ensure(ask=True):
     if todo:
         msg = ("Lung Collapse needs:\n\n"
                + ("- PyTorch (torch), from the PyTorch extension\n" if "torch" in todo else "")
-               + ("- the eurelaps_lung package (%s) and its dependencies (pyacvd, netgen-mesher)\n"
-                  % package_spec() if PACKAGE in todo else "")
+               + ("- the eurelaps_lung package %s%s (%s) and its dependencies (pyacvd, netgen-mesher)\n"
+                  % (PACKAGE_VERSION, " (installed: %s)" % s["version"] if s["version"] else "", package_spec())
+                  if PACKAGE in todo else "")
                + "\nInstall now? This can take several minutes; Slicer may look frozen meanwhile.")
         if ask and not slicer.util.confirmOkCancelDisplay(msg, windowTitle="Lung Collapse: dependencies"):
             return False
@@ -78,15 +87,18 @@ def ensure(ask=True):
                 raise RuntimeError("torch could not be installed (PyTorch extension)")
         if PACKAGE in todo:
             with slicer.util.WaitCursor():
-                slicer.util.pip_install(package_spec())
+                slicer.util.pip_install(("--upgrade " if s["package"] else "") + package_spec())
             importlib.invalidate_caches()
+            import sys
+            for name in [m for m in sys.modules if m == PACKAGE or m.startswith(PACKAGE + ".")]:
+                del sys.modules[name]                     # the new version on the next import
     if not vtk_ok():
         raise RuntimeError("A second VTK is installed in Slicer's Python (pip): uninstall it "
                            "(slicer.util.pip_uninstall('vtk')) and restart Slicer.")
     s = status()
     if not s["package"]:
         raise RuntimeError("%s is not importable after the install" % PACKAGE)
-    if s["version"] != PACKAGE_VERSION:
-        slicer.util.warningDisplay("eurelaps_lung %s is installed; this extension was made for %s."
-                                   % (s["version"], PACKAGE_VERSION), windowTitle="Lung Collapse")
+    if _version_tuple(s["version"]) < _version_tuple(PACKAGE_VERSION):
+        raise RuntimeError("eurelaps_lung %s is installed; this extension needs %s: restart Slicer and click Apply "
+                           "again" % (s["version"], PACKAGE_VERSION))
     return True

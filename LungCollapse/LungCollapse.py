@@ -5,6 +5,7 @@ import enum
 import importlib.util
 import json
 import logging
+import math
 import os
 import time
 from pathlib import Path
@@ -29,22 +30,75 @@ from LungCollapseLib import process as lcprocess
 from LungCollapseLib import workfolder as lcwork
 
 PACKAGE = "eurelaps_lung"
-PACKAGE_VERSION = "0.1.0"
+PACKAGE_VERSION = "0.1.1"
 STRUCTURES = lcinputs.STRUCTURES
+LUNGS = ("lungLeft", "lungRight")
+SEG_INPUTS = LUNGS + STRUCTURES + ("collapsed",)       # segmentation inputs (scene: segments; file: files)
+MULTI_INPUTS = LUNGS + ("collapsed",)                   # several segments / files, merged
+INPUT_LABELS = {"ct": "CT", "lungLeft": "left lung", "lungRight": "right lung", "airways": "airways",
+                "arteries": "arteries", "veins": "veins", "collapsed": "collapsed lung"}
+INPUT_COLORS = {"lungLeft": (0.85, 0.55, 0.45), "lungRight": (0.85, 0.55, 0.45), "airways": (0.9, 0.9, 0.9),
+                "arteries": (0.8, 0.2, 0.2), "veins": (0.2, 0.3, 0.85), "collapsed": (0.5, 0.5, 0.5)}
+LUNG_CLOSING_MM = 1.5   # closing after merging several segments of a lung (fills the fissure gaps)
 GEOMETRY_STEPS = ("geometry", "hilum", "fem_setup")
-# what the E rule was fitted on (eurelaps_lung.config.E_RULE_INFO); the package's own copy wins when installed
-E_RULE_INFO = dict(patients=13, collapse_percent_range=(23.0, 86.0), residual_sd_log10=0.158,
-                   positions=("supine", "supine"))
+
+
+# The rules (E from the collapse %, q0 = p0 / E from the collapse %) come from the package: predict.rules(), the
+# file eurelaps_lung/data/rules.json (or $EURELAPS_RULES), rewritten by main_calibrate.py --make-default after new
+# fits. The values below are only the fallback without the package (the fake backend of the tests).
+FALLBACK_RULES = {"rule": "E", "a": 3.5380, "b": -0.012883, "n": 13, "residual_sd": 0.158,
+                  "collapse_range": [23.1, 86.3], "positions": ["supine", "supine"], "source": "built-in fallback",
+                  "q0": {"a": -0.9351, "b": 0.010662, "residual_sd": 0.053, "r": 0.964, "n": 13}}
+_RULES_CACHE = {}
+
+
+def rules():
+    """The prediction rules in use (cached; reload_rules() after changing the package or $EURELAPS_RULES)."""
+    if "r" not in _RULES_CACHE:
+        r = None
+        try:
+            if importlib.util.find_spec(PACKAGE) is not None:
+                from eurelaps_lung import predict
+                if hasattr(predict, "rules"):              # eurelaps_lung >= 0.1.1
+                    r = predict.rules()
+        except Exception as e:
+            logging.warning("Lung Collapse: rules of %s not read (%s): built-in fallback", PACKAGE, e)
+        if r is None or r.get("rule") != "E" or not r.get("q0"):
+            r = FALLBACK_RULES
+        _RULES_CACHE["r"] = r
+    return _RULES_CACHE["r"]
+
+
+def reload_rules():
+    _RULES_CACHE.clear()
+    return rules()
+
+
+def E_from_collapse(percent):
+    r = rules()
+    return 10.0 ** (r["a"] + r["b"] * percent)
+
+
+def collapse_from_E(E):
+    r = rules()
+    return (math.log10(max(E, 1e-9)) - r["a"]) / r["b"]
+
+
+def q0_from_collapse(percent):
+    q = rules()["q0"]
+    return 10.0 ** (q["a"] + q["b"] * percent)
+
+
+def collapse_from_q0(q0):
+    q = rules()["q0"]
+    return (math.log10(max(q0, 1e-9)) - q["a"]) / q["b"]
 
 
 def rule_info():
-    try:
-        if importlib.util.find_spec(PACKAGE) is not None:
-            from eurelaps_lung.config import E_RULE_INFO as info
-            return info
-    except Exception:
-        pass
-    return E_RULE_INFO
+    r = rules()
+    return dict(patients=r.get("n"), collapse_percent_range=tuple(r.get("collapse_range", (23.0, 86.0))),
+                residual_sd_log10=r.get("residual_sd"), positions=tuple(r.get("positions", ("supine", "supine"))),
+                source=r.get("source"))
 
 
 #
@@ -96,14 +150,6 @@ class CtPosition(enum.Enum):
                 "right_lateral": _("Right lateral")}[self.value]
 
 
-class Stiffness(enum.Enum):
-    RULE = "rule"
-    FIXED = "fixed"
-
-    def label(self):
-        return {"rule": _("From the collapse % (calibrated rule)"), "fixed": _("Fixed E")}[self.value]
-
-
 class Device(enum.Enum):
     CPU = "cpu"
     CUDA = "cuda"
@@ -114,30 +160,50 @@ class Device(enum.Enum):
 
 @parameterNodeWrapper
 class LungCollapseParameterNode:
-    # inputs (the str ones are kept by the widget's own code)
-    inputSource: str = "scene"
+    # inputs: per input a source ("scene" | "file"), the scene node (+ segment IDs, comma separated) and the
+    # file path(s) (";" separated). Kept by the widget's own code (radios, segment selectors, path edits).
+    ctSource: str = "scene"
     ctVolume: vtkMRMLScalarVolumeNode
-    segmentation: vtkMRMLSegmentationNode
-    side: str = "left"
-    lungSegmentIds: str = ""
-    airwaysSegmentId: str = ""
-    arteriesSegmentId: str = ""
-    veinsSegmentId: str = ""
+    ctPath: str = ""
+    lungLeftSource: str = "scene"
+    lungLeftSegmentation: vtkMRMLSegmentationNode
+    lungLeftSegmentIds: str = ""
+    lungLeftPath: str = ""
+    lungRightSource: str = "scene"
+    lungRightSegmentation: vtkMRMLSegmentationNode
+    lungRightSegmentIds: str = ""
+    lungRightPath: str = ""
+    airwaysSource: str = "scene"
+    airwaysSegmentation: vtkMRMLSegmentationNode
+    airwaysSegmentIds: str = ""
+    airwaysPath: str = ""
+    arteriesSource: str = "scene"
+    arteriesSegmentation: vtkMRMLSegmentationNode
+    arteriesSegmentIds: str = ""
+    arteriesPath: str = ""
+    veinsSource: str = "scene"
+    veinsSegmentation: vtkMRMLSegmentationNode
+    veinsSegmentIds: str = ""
+    veinsPath: str = ""
     compareCollapsed: bool = False
+    collapsedSource: str = "scene"
     collapsedSegmentation: vtkMRMLSegmentationNode
-    collapsedSegmentId: str = ""
+    collapsedSegmentIds: str = ""
+    collapsedPath: str = ""
+    side: str = "left"
     # collapse
     collapsePercent: Annotated[float, WithinRange(0.0, 95.0)] = 50.0
     useTargetCollapse: bool = False
+    driveBy: str = "percent"               # "percent": collapse % given, p0 estimated; "pressure": the reverse
+    linkE: bool = True                     # E follows the collapse % (and back) through the calibrated rule
+    p0Value: Annotated[float, WithinRange(1.0, 50000.0)] = 330.0
+    eValue: Annotated[float, WithinRange(10.0, 100000.0)] = 1004.0
     position: Position = Position.SUPINE
     frames: Annotated[int, WithinRange(0, 60)] = 30
     # advanced
-    stiffness: Stiffness = Stiffness.RULE
-    fixedE: Annotated[float, WithinRange(10.0, 100000.0)] = 1000.0
     nu: Annotated[float, WithinRange(0.0, 0.49)] = 0.30
     ctPosition: CtPosition = CtPosition.SUPINE
     wallMargin: Annotated[float, WithinRange(0.0, 30.0)] = 5.0
-    closingMm: Annotated[float, WithinRange(0.0, 5.0)] = 1.5
     device: Device = Device.CPU
     rebuildGeometry: bool = False
     # run
@@ -170,6 +236,10 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._updating = False
         self._guess = None
         self._inflatedMl = None
+        self._collapsedMl = None
+        self._targetPercent = None
+        self._lastPercent = None
+        self._lastE = None
         self._results = None
         self._lastConfig = None
         self._volumeTimer = None
@@ -185,17 +255,19 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.logic = LungCollapseLogic()
         ui = self.ui
 
-        # file filters
-        ui.segmentationPathLineEdit.nameFilters = [lcinputs.SEGMENTATION_FILE_FILTER, "All files (*)"]
-        ui.collapsedPathLineEdit.nameFilters = [lcinputs.SEGMENTATION_FILE_FILTER, "All files (*)"]
-        ui.ctPathLineEdit.nameFilters = ["Images (*.nrrd *.nii *.nii.gz *.mha *.mhd *.nhdr)", "All files (*)"]
-        for w in (ui.lungSurfacePath, ui.airwaysSurfacePath, ui.arteriesSurfacePath, ui.veinsSurfacePath,
-                  ui.collapsedSurfacePath):
-            w.nameFilters = ["Surfaces (*.vtk *.vtp *.stl *.obj *.ply)", "All files (*)"]
-        for name in ("ctPathLineEdit", "segmentationPathLineEdit", "collapsedPathLineEdit", "outputDirPathLineEdit",
-                     "lungSurfacePath", "airwaysSurfacePath", "arteriesSurfacePath", "veinsSurfacePath",
-                     "collapsedSurfacePath"):
-            getattr(ui, name).settingKey = "LungCollapse/" + name
+        # inputs: one row per input, Scene / File
+        imageFilters = ["Images (*.nrrd *.nii *.nii.gz *.mha *.mhd *.nhdr)", "All files (*)"]
+        ui.ctPathEdit.nameFilters = imageFilters
+        for n in STRUCTURES:
+            getattr(ui, n + "PathEdit").nameFilters = [lcinputs.SEGMENTATION_FILE_FILTER, "All files (*)"]
+        for n in ("ctPathEdit", "airwaysPathEdit", "arteriesPathEdit", "veinsPathEdit", "outputDirPathLineEdit"):
+            getattr(ui, n).settingKey = "LungCollapse/" + n
+        for n in SEG_INPUTS:
+            sel = getattr(ui, n + "SegmentSelector")
+            sel.setMRMLScene(slicer.mrmlScene)
+            sel.segmentationNodeSelectorVisible = True
+            sel.multiSelection = n in MULTI_INPUTS
+            sel.noneEnabled = True
 
         # sequence browser: play and seek widgets
         self.playWidget = slicer.qMRMLSequenceBrowserPlayWidget()
@@ -207,29 +279,27 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         ui.progressBar.setVisible(False)
         ui.resultsTableView.setMRMLScene(slicer.mrmlScene)
 
-        # segment selectors: the node comes from the segmentation combo
-        for sel in self._segmentSelectors():
-            sel.setMRMLScene(slicer.mrmlScene)
-            sel.segmentationNodeSelectorVisible = False
-        ui.lungSegmentSelector.multiSelection = True
-
         # connections
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
-        for radio in (ui.sourceSceneRadio, ui.sourceFilesRadio, ui.sourceSurfacesRadio):
-            radio.toggled.connect(self.onSourceChanged)
+        for n in ("ct",) + SEG_INPUTS:
+            getattr(ui, n + "FileRadio").toggled.connect(lambda isFile, n=n: self.onSourceToggled(n, isFile))
+        ui.ctNodeSelector.currentNodeChanged.connect(self.onCtNodeChanged)
+        ui.ctPathEdit.currentPathChanged.connect(lambda path: self.onPathChanged("ct", path))
+        for n in SEG_INPUTS:
+            sel = getattr(ui, n + "SegmentSelector")
+            sel.connect("currentNodeChanged(vtkMRMLNode*)", lambda node, n=n: self.onSegmentationNodeChanged(n, node))
+            if n in MULTI_INPUTS:
+                sel.connect("segmentSelectionChanged(QStringList)", lambda ids, n=n: self.onSegmentsChanged(n))
+                getattr(ui, n + "PathsEdit").editingFinished.connect(lambda n=n: self.onPathsEdited(n))
+                getattr(ui, n + "BrowseButton").clicked.connect(lambda checked=False, n=n: self.onBrowse(n))
+            else:
+                sel.connect("currentSegmentChanged(QString)", lambda sid, n=n: self.onSegmentsChanged(n))
+                getattr(ui, n + "PathEdit").currentPathChanged.connect(lambda path, n=n: self.onPathChanged(n, path))
         ui.sideLeftRadio.toggled.connect(self.onSideChanged)
-        ui.segmentationSelector.currentNodeChanged.connect(self.onSegmentationChanged)
-        ui.collapsedSegmentationSelector.currentNodeChanged.connect(self.onCollapsedSegmentationChanged)
-        ui.lungSegmentSelector.connect("segmentSelectionChanged(QStringList)", self.onSegmentsChanged)
-        for sel in (ui.airwaysSegmentSelector, ui.arteriesSegmentSelector, ui.veinsSegmentSelector,
-                    ui.collapsedSegmentSelector):
-            sel.connect("currentSegmentChanged(QString)", self.onSegmentsChanged)
-        ui.loadFilesButton.clicked.connect(self.onLoadFiles)
-        ui.loadCollapsedButton.clicked.connect(self.onLoadCollapsed)
-        for w in (ui.lungSurfacePath, ui.airwaysSurfacePath, ui.arteriesSurfacePath, ui.veinsSurfacePath,
-                  ui.collapsedSurfacePath):
-            w.currentPathChanged.connect(lambda *_: self.updateGui())
+        ui.compareCheckBox.toggled.connect(lambda *args: self.inputsChanged())
+        ui.drivePressureRadio.toggled.connect(self.onDriveChanged)
+        ui.sideRightRadio.toggled.connect(self.onSideChanged)
         ui.collapseVolumeSpinBox.valueChanged.connect(self.onCollapseVolumeChanged)
         ui.outputDirPathLineEdit.currentPathChanged.connect(self.onOutputDirChanged)
         ui.advancedCollapsibleButton.contentsCollapsed.connect(self.onAdvancedToggled)
@@ -248,7 +318,6 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._volumeTimer.timeout.connect(self.updateInflatedVolume)
 
         self.initializeParameterNode()
-        self.onSourceChanged()
 
     def cleanup(self) -> None:
         self.removeObservers()
@@ -278,24 +347,19 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self.parent.isEntered:
             self.initializeParameterNode()
 
-    def _segmentSelectors(self):
-        ui = self.ui
-        return (ui.lungSegmentSelector, ui.airwaysSegmentSelector, ui.arteriesSegmentSelector,
-                ui.veinsSegmentSelector, ui.collapsedSegmentSelector)
-
     # ------------------------------------------------------------------ parameter node
     def initializeParameterNode(self) -> None:
         self.setParameterNode(self.logic.getParameterNode())
         p = self._parameterNode
-        if p.segmentation is None and p.inputSource == "scene":
-            first = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentationNode")
-            if first is not None:
-                p.segmentation = first
-        if p.ctVolume is None and p.inputSource == "scene":
+        if p.ctSource == "scene" and p.ctVolume is None:
             first = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
             if first is not None and first.GetClassName() == "vtkMRMLScalarVolumeNode":
                 p.ctVolume = first
         self.restoreFromParameterNode()
+        if not any(getattr(p, n + "Segmentation") for n in SEG_INPUTS):
+            first = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentationNode")
+            if first is not None and not first.GetAttribute("LungCollapse.Input"):
+                self.autofill(first)
 
     def setParameterNode(self, parameterNode) -> None:
         if self._parameterNode:
@@ -309,199 +373,271 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def restoreFromParameterNode(self):
         """The widgets that the parameter node does not connect by itself."""
-        p = self._parameterNode
+        p, ui = self._parameterNode, self.ui
         if p is None:
             return
-        ui = self.ui
         self._updating = True
         try:
-            {"scene": ui.sourceSceneRadio, "files": ui.sourceFilesRadio,
-             "surfaces": ui.sourceSurfacesRadio}.get(p.inputSource, ui.sourceSceneRadio).checked = True
+            ui.ctNodeSelector.setCurrentNode(p.ctVolume)
+            ui.ctPathEdit.currentPath = p.ctPath
+            for n in ("ct",) + SEG_INPUTS:
+                isFile = getattr(p, n + "Source") == "file"
+                getattr(ui, n + ("FileRadio" if isFile else "SceneRadio")).checked = True
+                self._showStackPage(n, isFile)
+            for n in SEG_INPUTS:
+                self._setSelector(n, getattr(p, n + "Segmentation"), self._ids(n))
+                if n in MULTI_INPUTS:
+                    getattr(ui, n + "PathsEdit").text = getattr(p, n + "Path")
+                else:
+                    getattr(ui, n + "PathEdit").currentPath = getattr(p, n + "Path")
             (ui.sideLeftRadio if p.side == "left" else ui.sideRightRadio).checked = True
+            (ui.drivePressureRadio if p.driveBy == "pressure" else ui.drivePercentRadio).checked = True
             ui.outputDirPathLineEdit.currentPath = p.outputDir
-            self._setSegmentNodes()
-            if p.lungSegmentIds:
-                ui.lungSegmentSelector.setSelectedSegmentIDs(p.lungSegmentIds.split(","))
-            for s in STRUCTURES:
-                sid = getattr(p, s + "SegmentId")
-                if sid:
-                    getattr(ui, s + "SegmentSelector").setCurrentSegmentID(sid)
-            if p.collapsedSegmentId:
-                ui.collapsedSegmentSelector.setCurrentSegmentID(p.collapsedSegmentId)
         finally:
             self._updating = False
-        self.onSourceChanged()
         self._volumeTimer.start()
-
-    def _setSegmentNodes(self):
-        p = self._parameterNode
-        for sel in self._segmentSelectors()[:4]:
-            sel.setCurrentNode(p.segmentation)
-        coll = p.collapsedSegmentation if p.collapsedSegmentation is not None else p.segmentation
-        self.ui.collapsedSegmentSelector.setCurrentNode(coll)
-
-    # ------------------------------------------------------------------ inputs
-    def source(self):
-        ui = self.ui
-        if ui.sourceFilesRadio.checked:
-            return "files"
-        if ui.sourceSurfacesRadio.checked:
-            return "surfaces"
-        return "scene"
-
-    def onSourceChanged(self, *args):
-        ui = self.ui
-        src = self.source()
-        if self._parameterNode and not self._updating:
-            self._parameterNode.inputSource = src
-        ui.sceneInputsWidget.setVisible(src == "scene")
-        ui.filesInputsWidget.setVisible(src == "files")
-        ui.surfacesInputsWidget.setVisible(src == "surfaces")
-        for w in (ui.lungSegmentSelector, ui.airwaysSegmentSelector, ui.arteriesSegmentSelector,
-                  ui.veinsSegmentSelector):
-            _set_row_visible(w, src != "surfaces")
-        _set_row_visible(ui.inflatedVolumeLabel, True)
-        ui.compareCheckBox.setVisible(src != "surfaces")
-        ui.removeLoadedCheckBox.setVisible(src == "files")
         self.updateGui()
 
-    def onSegmentationChanged(self, node):
+    # ------------------------------------------------------------------ inputs
+    def _ids(self, n):
+        return [i for i in getattr(self._parameterNode, n + "SegmentIds").split(",") if i]
+
+    def _setSelector(self, n, node, ids):
+        sel = getattr(self.ui, n + "SegmentSelector")
+        sel.setCurrentNode(node)
+        if n in MULTI_INPUTS:
+            sel.setSelectedSegmentIDs(ids)
+        else:
+            sel.setCurrentSegmentID(ids[0] if ids else "")
+
+    def _showStackPage(self, n, isFile):
+        stack = getattr(self.ui, n + "Stack")
+        stack.currentIndex = 1 if isFile else 0
+        for i in range(stack.count):                      # size the stack to the visible page only
+            policy = qt.QSizePolicy.Preferred if i == stack.currentIndex else qt.QSizePolicy.Ignored
+            stack.widget(i).setSizePolicy(qt.QSizePolicy.Preferred, policy)
+
+    def source(self, n):
+        return getattr(self._parameterNode, n + "Source") if self._parameterNode else "scene"
+
+    def onSourceToggled(self, n, isFile):
+        self._showStackPage(n, isFile)
         if self._updating or self._parameterNode is None:
             return
-        self._setSegmentNodes()
-        self.preselect()
+        setattr(self._parameterNode, n + "Source", "file" if isFile else "scene")
+        if isFile:
+            self.loadFileInput(n)
+        self.inputsChanged()
 
-    def onCollapsedSegmentationChanged(self, node):
+    def onCtNodeChanged(self, node):
         if self._updating or self._parameterNode is None:
             return
-        self._setSegmentNodes()
-        self.preselectCollapsed()
+        self._parameterNode.ctVolume = node
+        if node is not None and self.source("ct") == "scene":
+            slicer.util.setSliceViewerLayers(background=node, fit=True)
 
-    def preselect(self):
-        """Side and segments pre-selected from the segment names (or centroids)."""
+    def onSegmentationNodeChanged(self, n, node):
+        """A segmentation chosen in one row: its segments are pre-selected by name in that row, and in the
+        rows still empty (same segmentation)."""
+        if self._updating or self._parameterNode is None:
+            return
+        if node is not None:
+            self.autofill(node, row=n)
+        else:
+            self.onSegmentsChanged(n)
+
+    def autofill(self, node, row=None):
+        """Pre-selection from the segment names (or centroids): the lungs of both sides, the three trees, the
+        collapsed lung and the side to collapse. `row` gets it in any case; the other scene rows only when empty."""
         p = self._parameterNode
-        seg = p.segmentation
-        if seg is None:
-            self._guess = None
-            return
-        coll = p.collapsedSegmentation if p.compareCollapsed else None
-        self._guess = g = lcinputs.guess(seg, coll)
+        g = lcinputs.guess(node)
+        wanted = {"lungLeft": g["lungs"]["left"], "lungRight": g["lungs"]["right"], "collapsed":
+                  [g["collapsed"]] if g["collapsed"] else []}
+        wanted.update({s: [g[s]] if g[s] else [] for s in STRUCTURES})
         self._updating = True
         try:
+            for n in SEG_INPUTS:
+                if self.source(n) != "scene":
+                    continue
+                if n == row or (getattr(p, n + "Segmentation") is None and wanted[n]):
+                    self._setSelector(n, node, wanted[n])
+                    if n == row and not wanted[n] and n not in MULTI_INPUTS and node.GetSegmentation().GetNumberOfSegments():
+                        getattr(self.ui, n + "SegmentSelector").setCurrentSegmentID(
+                            node.GetSegmentation().GetNthSegmentID(0))
+            if g["collapsed"] and self.source("collapsed") == "scene" and (
+                    row is None or row != "collapsed") and not p.compareCollapsed:
+                p.compareCollapsed = True
             if g["side"]:
                 p.side = g["side"]
                 (self.ui.sideLeftRadio if g["side"] == "left" else self.ui.sideRightRadio).checked = True
-            for s in STRUCTURES:
-                getattr(self.ui, s + "SegmentSelector").setCurrentSegmentID(g[s] or "")
-            self.ui.lungSegmentSelector.setSelectedSegmentIDs(g["lungs"].get(p.side, []))
-            if g["collapsed"] and (p.collapsedSegmentation is None or p.collapsedSegmentation is seg):
-                self.ui.collapsedSegmentSelector.setCurrentSegmentID(g["collapsed"])
-                if not p.compareCollapsed:
-                    p.compareCollapsed = True
         finally:
             self._updating = False
         self.ui.sideNoteLabel.text = _("(from the segment names)") if g["side"] else ""
-        self.onSegmentsChanged()
+        for n in SEG_INPUTS:
+            self._syncFromSelector(n)
+        self.inputsChanged()
 
-    def preselectCollapsed(self):
+    def _syncFromSelector(self, n):
         p = self._parameterNode
-        node = p.collapsedSegmentation if p.collapsedSegmentation is not None else p.segmentation
-        if node is None:
+        sel = getattr(self.ui, n + "SegmentSelector")
+        ids = list(sel.selectedSegmentIDs()) if n in MULTI_INPUTS else (
+            [sel.currentSegmentID()] if sel.currentSegmentID() else [])
+        node = sel.currentNode()
+        if getattr(p, n + "Segmentation") is not node:
+            setattr(p, n + "Segmentation", node)
+        text = ",".join(ids)
+        if getattr(p, n + "SegmentIds") != text:
+            setattr(p, n + "SegmentIds", text)
+
+    def onSegmentsChanged(self, n):
+        if self._updating or self._parameterNode is None:
             return
-        g = lcinputs.guess(node, node)
-        if g["collapsed"]:
-            self.ui.collapsedSegmentSelector.setCurrentSegmentID(g["collapsed"])
-        elif node is not p.segmentation and node.GetSegmentation().GetNumberOfSegments() == 1:
-            self.ui.collapsedSegmentSelector.setCurrentSegmentID(node.GetSegmentation().GetNthSegmentID(0))
-        self.onSegmentsChanged()
+        self._syncFromSelector(n)
+        self.inputsChanged()
+
+    def onPathChanged(self, n, path):
+        """CT and trees from a file: loaded and shown as soon as the path points to a file."""
+        if self._updating or self._parameterNode is None:
+            return
+        setattr(self._parameterNode, n + "Path", path or "")
+        if self.source(n) == "file":
+            self.loadFileInput(n)
+        self.inputsChanged()
+
+    def onPathsEdited(self, n):
+        if self._updating or self._parameterNode is None:
+            return
+        text = getattr(self.ui, n + "PathsEdit").text.strip()
+        if text != getattr(self._parameterNode, n + "Path"):
+            setattr(self._parameterNode, n + "Path", text)
+            self.loadFileInput(n)
+            self.inputsChanged()
+
+    def onBrowse(self, n):
+        paths = qt.QFileDialog.getOpenFileNames(
+            slicer.util.mainWindow(), _("{what}: one or more files (merged)").format(what=INPUT_LABELS[n].capitalize()),
+            "", lcinputs.SEGMENTATION_FILE_FILTER + ";;All files (*)")
+        if paths:
+            getattr(self.ui, n + "PathsEdit").text = "; ".join(paths)
+            self.onPathsEdited(n)
+
+    def _paths(self, n):
+        return [x.strip() for x in getattr(self._parameterNode, n + "Path").split(";") if x.strip()]
+
+    def loadFileInput(self, n):
+        """Load the file(s) of an input into the scene (once per path; a new path replaces the old node)."""
+        paths = self._paths(n)
+        if not paths or not all(os.path.isfile(x) for x in paths):
+            return None
+        with slicer.util.tryWithErrorDisplay(_("Failed to load the {what}.").format(what=INPUT_LABELS[n]),
+                                             waitCursor=True):
+            node = self.logic.loadFileInput(n, paths)
+            lm = slicer.app.layoutManager()
+            if n != "ct" and lm is not None and lm.threeDWidget(0) is not None:
+                lm.threeDWidget(0).threeDView().resetFocalPoint()
+            if n == "ct":
+                slicer.util.setSliceViewerLayers(background=node, fit=True)
+            elif n in LUNGS and self._parameterNode is not None:
+                other = "lungRight" if n == "lungLeft" else "lungLeft"
+                if not self.logic.inputAvailable(self._parameterNode, other):
+                    self._setSide("left" if n == "lungLeft" else "right")
+                elif n == "lungLeft" or n == "lungRight":
+                    side = lcinputs.name_side(" ".join(os.path.basename(x) for x in self._paths("collapsed")))
+                    if side:
+                        self._setSide(side)
+            elif n == "collapsed":
+                side = lcinputs.name_side(" ".join(os.path.basename(x) for x in paths))
+                if side and self.logic.inputAvailable(self._parameterNode, "lung" + side.capitalize()):
+                    self._setSide(side)
+            return node
+        return None
+
+    def _setSide(self, side):
+        self._parameterNode.side = side
+        self._updating = True
+        try:
+            (self.ui.sideLeftRadio if side == "left" else self.ui.sideRightRadio).checked = True
+        finally:
+            self._updating = False
 
     def onSideChanged(self, *args):
         if self._updating or self._parameterNode is None:
             return
         side = "left" if self.ui.sideLeftRadio.checked else "right"
-        self._parameterNode.side = side
-        if self.source() != "surfaces":
-            g = self._guess
-            if g is None and self._parameterNode.segmentation is not None:
-                g = self._guess = lcinputs.guess(self._parameterNode.segmentation)
-            if g is not None:
-                self.ui.lungSegmentSelector.setSelectedSegmentIDs(g["lungs"].get(side, []))
-        self.updateGui()
+        if side != self._parameterNode.side:
+            self._parameterNode.side = side
+            self.inputsChanged()
 
-    def onSegmentsChanged(self, *args):
-        if self._updating or self._parameterNode is None:
-            return
-        p, ui = self._parameterNode, self.ui
-        with slicer.util.NodeModify(p.parameterNode) if hasattr(slicer.util, "NodeModify") else _nullcontext():
-            p.lungSegmentIds = ",".join(ui.lungSegmentSelector.selectedSegmentIDs())
-            for s in STRUCTURES:
-                setattr(p, s + "SegmentId", getattr(ui, s + "SegmentSelector").currentSegmentID() or "")
-            p.collapsedSegmentId = ui.collapsedSegmentSelector.currentSegmentID() or ""
+    def inputsChanged(self):
         self._inflatedMl = None
         self._volumeTimer.start()
         self.updateGui()
 
     def updateInflatedVolume(self):
-        """Volume of the selected lung segments (sum of their closed surfaces), for the mL <-> % link."""
+        """Volumes of the lung to collapse and of the collapsed lung (sum of their segments' closed surfaces):
+        the mL <-> % link, and the collapse % of the collapsed lung (the default when it is given)."""
         p = self._parameterNode
-        self._inflatedMl = None
+        self._inflatedMl = self._collapsedMl = None
+        hadTarget = self._targetPercent is not None
+        self._targetPercent = None
+
+        def volume(name):
+            resolved = self.logic.resolveInput(p, name, load=False)
+            if resolved is None:
+                return None
+            node, ids = resolved
+            return sum(lcinputs.volume_ml(lcinputs.segment_surface(node, sid)) for sid in ids)
+
         try:
-            if self.source() == "surfaces":
-                path = self.ui.lungSurfacePath.currentPath
-                if path and os.path.isfile(path):
-                    pd, _space = lcinputs.read_surface_file(path)
-                    self._inflatedMl = lcinputs.volume_ml(pd)
-            elif p is not None and p.segmentation is not None and p.lungSegmentIds:
+            if p is not None:
                 with slicer.util.WaitCursor():
-                    self._inflatedMl = sum(lcinputs.volume_ml(lcinputs.segment_surface(p.segmentation, sid))
-                                           for sid in p.lungSegmentIds.split(","))
+                    self._inflatedMl = volume("lung" + p.side.capitalize())
+                    if p.compareCollapsed:
+                        self._collapsedMl = volume("collapsed")
         except Exception as e:
-            logging.warning("Lung Collapse: inflated volume not computed: %s", e)
+            logging.warning("Lung Collapse: volumes not computed: %s", e)
+        if self._inflatedMl and self._collapsedMl:
+            self._targetPercent = min(max(100.0 * (1.0 - self._collapsedMl / self._inflatedMl), 0.0), 95.0)
+            if not hadTarget and not p.useTargetCollapse:
+                p.useTargetCollapse = True               # a collapsed lung given: its collapse % is the default
         self.updateGui()
 
-    def onLoadFiles(self):
-        ui, p = self.ui, self._parameterNode
-        seg_path = ui.segmentationPathLineEdit.currentPath
-        ct_path = ui.ctPathLineEdit.currentPath
-        with slicer.util.tryWithErrorDisplay(_("Failed to load the files."), waitCursor=True):
-            if not seg_path:
-                raise ValueError(_("Choose a segmentation file."))
-            ct = None
-            if ct_path:
-                ct, added = lcinputs.load_volume_file(ct_path)
-                self.logic.loadedNodes.extend(added)
-            seg, added = lcinputs.load_segmentation_file(seg_path)
-            self.logic.loadedNodes.extend(added)
-            if ct is not None:
-                seg.SetReferenceImageGeometryParameterFromVolumeNode(ct)
-                slicer.util.setSliceViewerLayers(background=ct, fit=True)
-            ui.segmentationPathLineEdit.addCurrentPathToHistory()
-            self._updating = True
-            try:
-                p.ctVolume = ct
-                p.segmentation = seg
-            finally:
-                self._updating = False
-            self._setSegmentNodes()
-            self.preselect()
+    def onDriveChanged(self, pressure):
+        if self._updating or self._parameterNode is None:
+            return
+        self._parameterNode.driveBy = "pressure" if pressure else "percent"
 
-    def onLoadCollapsed(self):
-        ui, p = self.ui, self._parameterNode
-        path = ui.collapsedPathLineEdit.currentPath
-        with slicer.util.tryWithErrorDisplay(_("Failed to load the collapsed lung."), waitCursor=True):
-            if not path:
-                raise ValueError(_("Choose the file of the collapsed lung."))
-            seg, added = lcinputs.load_segmentation_file(path)
-            self.logic.loadedNodes.extend(added)
-            self._updating = True
-            try:
-                p.collapsedSegmentation = seg
-            finally:
-                self._updating = False
-            self._setSegmentNodes()
-            self.preselectCollapsed()
+    def syncCollapseAndE(self):
+        """Collapse % <-> E through the calibrated rule (when linked); the collapsed lung's % when used."""
+        p = self._parameterNode
+        if p.driveBy == "pressure":
+            # p0 and E given: the collapse % shown is the estimate from q0 = p0 / E
+            pct = round(min(max(collapse_from_q0(p.p0Value / max(p.eValue, 1e-9)), 0.0), 95.0), 1)
+            if abs(p.collapsePercent - pct) > 0.05:
+                p.collapsePercent = pct
+            self._lastPercent, self._lastE, self._lastLink = p.collapsePercent, p.eValue, p.linkE
+            return
+        if p.useTargetCollapse and self._targetPercent is not None and abs(p.collapsePercent - self._targetPercent) > 0.05:
+            p.collapsePercent = round(self._targetPercent, 1)
+        relinked = p.linkE and not getattr(self, "_lastLink", True)
+        self._lastLink = p.linkE
+        if p.linkE:
+            if relinked or self._lastPercent is None or abs(p.collapsePercent - self._lastPercent) > 1e-6 or self._lastE is None:
+                E = round(E_from_collapse(p.collapsePercent))
+                self._lastPercent, self._lastE = p.collapsePercent, E
+                if abs(p.eValue - E) > 0.5:
+                    p.eValue = E
+            elif abs(p.eValue - self._lastE) > 0.5:          # E edited: the collapse % follows
+                pct = round(min(max(collapse_from_E(p.eValue), 0.0), 95.0), 1)
+                self._lastE = p.eValue
+                self._lastPercent = pct
+                p.collapsePercent = pct
+        else:
+            self._lastPercent, self._lastE = p.collapsePercent, p.eValue
+        p0 = round(q0_from_collapse(p.collapsePercent) * p.eValue)    # the suggested p0
+        if abs(p.p0Value - p0) > 0.5:
+            p.p0Value = p0
 
-    # ------------------------------------------------------------------ collapse
     def onCollapseVolumeChanged(self, value):
         if self._updating or not self._inflatedMl or self._parameterNode is None:
             return
@@ -531,30 +667,121 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._parameterNode.outputDir = path
 
     # ------------------------------------------------------------------ state of the GUI
+    @staticmethod
+    def _setInput(spin, editable, estimate=False):
+        """A spin box as an input (editable) or as a value that follows the others (read-only, no arrows)."""
+        spin.readOnly = not editable
+        spin.buttonSymbols = qt.QAbstractSpinBox.UpDownArrows if editable else qt.QAbstractSpinBox.NoButtons
+        spin.prefix = "≈ " if estimate else ""
+        spin.styleSheet = "" if editable else "QAbstractSpinBox { background: transparent; border: none; font-weight: bold; }"
+        spin.focusPolicy = qt.Qt.StrongFocus if editable else qt.Qt.NoFocus
+
+    def updateCollapseSection(self):
+        """Collapse: what is given (editable) and what follows from it (read-only), for the two ways of driving
+        the collapse: by the collapse % (E from the rule, p0 estimated) or by the pressure p0 (and E)."""
+        p, ui = self._parameterNode, self.ui
+        pressure = p.driveBy == "pressure"
+        info = rule_info()
+        lo, hi = info["collapse_percent_range"]
+
+        # order of the groups: what is given first
+        lay = ui.collapseGroupBox.parentWidget().layout()
+        first, second = (ui.forcesGroupBox, ui.collapseGroupBox) if pressure else (ui.collapseGroupBox, ui.forcesGroupBox)
+        if lay.indexOf(first) > lay.indexOf(second):
+            lay.removeWidget(first)
+            lay.insertWidget(lay.indexOf(second), first)
+        ui.collapseGroupBox.title = _("Expected collapse (result of the run)") if pressure else _("Collapse")
+        ui.forcesGroupBox.title = _("Pressure and stiffness") if pressure else _("Stiffness and pressure")
+
+        # collapse group: the slider and the volume when the % is given; the estimate when p0 is given
+        ui.percentRowsWidget.setVisible(not pressure)
+        ui.estimateRowsWidget.setVisible(pressure)
+        if self._targetPercent is not None:
+            ui.useTargetCollapseCheckBox.text = _("Use the collapse % of the collapsed lung ({v:.1f} %)").format(
+                v=self._targetPercent)
+        else:
+            ui.useTargetCollapseCheckBox.text = _("Use the collapse % of the collapsed lung")
+        ui.collapsePercentSlider.enabled = not p.useTargetCollapse
+        self._updating = True
+        try:
+            if self._inflatedMl:
+                ui.collapseVolumeSpinBox.enabled = not p.useTargetCollapse
+                ui.collapseVolumeSpinBox.maximum = self._inflatedMl
+                ui.collapseVolumeSpinBox.value = (1.0 - p.collapsePercent / 100.0) * self._inflatedMl
+                ui.inflatedOfLabel.text = _("of {v:.0f} mL inflated").format(v=self._inflatedMl)
+            else:
+                ui.collapseVolumeSpinBox.enabled = False
+                ui.inflatedOfLabel.text = ""
+        finally:
+            self._updating = False
+        lastPct = (self._results or {}).get("collapse_percent")
+        if pressure:
+            vol = (_(" (≈ {v:.0f} mL)").format(v=(1 - p.collapsePercent / 100) * self._inflatedMl)
+                   if self._inflatedMl else "")
+            last = _("last run: {v:.1f} %").format(v=lastPct) if lastPct is not None else ""
+            ui.collapseEstimateLabel.text = ("<b>≈ %.1f %%</b>%s<br><span style='color:gray'>%s%s</span>" % (
+                p.collapsePercent, vol, _("estimate from q0 = p0 / E; the run gives the real value"),
+                ("<br>" + last) if last else ""))
+        if p.useTargetCollapse and not pressure:
+            ui.collapseRangeLabel.text = _("The collapse % of the collapsed lung.")
+            ui.collapseRangeLabel.styleSheet = "color: gray"
+        elif lo <= p.collapsePercent <= hi:
+            ui.collapseRangeLabel.text = _("The rules are calibrated on {lo:.0f}-{hi:.0f} % ({n} patients).").format(
+                lo=lo, hi=hi, n=info.get("patients", "?"))
+            ui.collapseRangeLabel.styleSheet = "color: gray"
+        else:
+            ui.collapseRangeLabel.text = _("Extrapolation: the rules are calibrated on {lo:.0f}-{hi:.0f} %.").format(
+                lo=lo, hi=hi)
+            ui.collapseRangeLabel.styleSheet = "color: #d07000; font-weight: bold"
+        ui.collapseGroupBox.layout().activate()
+
+        # stiffness and pressure: inputs or values that follow
+        eEditable = pressure or not p.linkE
+        self._setInput(ui.eSpinBox, eEditable)
+        self._setInput(ui.p0SpinBox, pressure, estimate=not pressure)
+        ui.linkECheckBox.setVisible(not pressure)
+        lo_E, hi_E = E_from_collapse(95.0), E_from_collapse(0.0)
+        ui.eSpinBox.minimum = math.floor(lo_E) if (p.linkE and not pressure) else 10.0
+        ui.eSpinBox.maximum = math.ceil(hi_E) if (p.linkE and not pressure) else 100000.0
+        ui.p0CmLabel.text = "= %.2f cmH₂O" % (p.p0Value / 98.0665)
+        last = (self._results or {}).get("p0_Pa")
+        if pressure:
+            ui.estimateLabel.text = _("Both given. E cannot come from the rule here: the rule needs the collapse %.")
+        else:
+            ui.estimateLabel.text = (
+                (_("E follows the collapse % through the rule.") if p.linkE else _("E given (not from the rule)."))
+                + " " + _("p0 is an estimate from the cohort fits: the run finds the exact value{last}.").format(
+                    last=_(" (last run: {v:.0f} Pa)").format(v=last) if last else ""))
+        ui.estimateLabel.styleSheet = "color: gray"
+
+        # position and sequence
+        if p.position == Position.SUPINE:
+            ui.positionNoteLabel.text = _("Calibrated on supine CTs.")
+            ui.positionNoteLabel.styleSheet = "color: gray"
+        else:
+            healthy = "right" if p.side == "left" else "left"
+            extra = (_(" ({healthy} side down)").format(healthy=healthy) if p.position == Position.LATERAL else "")
+            ui.positionNoteLabel.text = _("Calibrated on supine CTs: the rules are not validated in this "
+                                          "position{extra}.").format(extra=extra)
+            ui.positionNoteLabel.styleSheet = "color: #d07000"
+        ui.framesNoteLabel.styleSheet = "color: gray"
+
     def missingInputs(self):
         """What is missing before Apply (empty list = ready)."""
-        p, ui = self._parameterNode, self.ui
+        p = self._parameterNode
         if p is None:
             return [_("parameter node")]
         missing = []
-        if self.source() == "surfaces":
-            for label, w in ((_("lung surface"), ui.lungSurfacePath), (_("airways surface"), ui.airwaysSurfacePath),
-                             (_("arteries surface"), ui.arteriesSurfacePath), (_("veins surface"), ui.veinsSurfacePath)):
-                if not (w.currentPath and os.path.isfile(w.currentPath)):
-                    missing.append(label)
-            if p.useTargetCollapse and not (ui.collapsedSurfacePath.currentPath
-                                            and os.path.isfile(ui.collapsedSurfacePath.currentPath)):
-                missing.append(_("collapsed lung surface"))
-            return missing
-        if p.segmentation is None:
-            return [_("segmentation") if self.source() == "scene" else _("segmentation file (Load)")]
-        if not p.lungSegmentIds:
-            missing.append(_("lung segment"))
-        for s, label in zip(STRUCTURES, (_("airways"), _("arteries"), _("veins"))):
-            if not getattr(p, s + "SegmentId"):
-                missing.append(label)
-        if p.compareCollapsed and not p.collapsedSegmentId:
-            missing.append(_("collapsed lung segment"))
+        lungs = [n for n in LUNGS if self.logic.inputAvailable(p, n)]
+        if not lungs:
+            missing.append(_("a lung (left or right)"))
+        elif "lung" + p.side.capitalize() not in lungs:
+            missing.append(_("the {side} lung (the side to collapse)").format(side=p.side))
+        for n in STRUCTURES:
+            if not self.logic.inputAvailable(p, n):
+                missing.append(_(INPUT_LABELS[n]))
+        if p.compareCollapsed and not self.logic.inputAvailable(p, "collapsed"):
+            missing.append(_("collapsed lung"))
         return missing
 
     def updateGui(self, caller=None, event=None):
@@ -562,58 +789,29 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if p is None:
             return
         running = self.logic.running()
-        src = self.source()
-        compare = p.compareCollapsed if src != "surfaces" else bool(ui.collapsedSurfacePath.currentPath)
 
-        # compare widgets
-        ui.compareWidget.setVisible(src != "surfaces" and p.compareCollapsed)
-        _set_row_visible(ui.collapsedSegmentationSelector, src == "scene")
-        ui.collapsedPathLineEdit.parentWidget()
-        _set_row_visible(ui.collapsedFileLabel, False)
-        ui.collapsedFileLabel.setVisible(src == "files")
-        ui.collapsedPathLineEdit.setVisible(src == "files")
-        ui.loadCollapsedButton.setVisible(src == "files")
+        # side: only the lungs given
+        left, right = (self.logic.inputAvailable(p, n) for n in LUNGS)
+        ui.sideLeftRadio.enabled = left or not right
+        ui.sideRightRadio.enabled = right or not left
+        ui.collapsedRow.setVisible(p.compareCollapsed)
+        ui.collapsedLabel.setVisible(p.compareCollapsed)
+        ui.compareNoteLabel.setVisible(p.compareCollapsed)
+        anyFile = any(self.source(n) == "file" for n in ("ct",) + SEG_INPUTS)
+        ui.removeLoadedCheckBox.setVisible(anyFile)
+        compare = p.compareCollapsed and self.logic.inputAvailable(p, "collapsed")
         ui.useTargetCollapseCheckBox.enabled = compare
         if not compare and p.useTargetCollapse:
             p.useTargetCollapse = False
 
-        # collapse % <-> volume
-        self._updating = True
-        try:
-            if self._inflatedMl:
-                ui.inflatedVolumeLabel.text = "%.0f mL" % self._inflatedMl
-                ui.collapseVolumeSpinBox.enabled = not p.useTargetCollapse
-                ui.collapseVolumeSpinBox.maximum = self._inflatedMl
-                ui.collapseVolumeSpinBox.value = (1.0 - p.collapsePercent / 100.0) * self._inflatedMl
-            else:
-                ui.inflatedVolumeLabel.text = "-"
-                ui.collapseVolumeSpinBox.enabled = False
-        finally:
-            self._updating = False
-        ui.collapsePercentSlider.enabled = not p.useTargetCollapse
-        info = rule_info()
-        lo, hi = info["collapse_percent_range"]
-        if p.useTargetCollapse:
-            ui.collapseRangeLabel.text = _("The collapse % is taken from the collapsed lung.")
-            ui.collapseRangeLabel.styleSheet = ""
-        elif lo <= p.collapsePercent <= hi:
-            ui.collapseRangeLabel.text = _("Calibrated on {lo:.0f}-{hi:.0f} % ({n} patients).").format(
-                lo=lo, hi=hi, n=info.get("patients", "?"))
-            ui.collapseRangeLabel.styleSheet = ""
-        else:
-            ui.collapseRangeLabel.text = _("Extrapolation: the stiffness rule was calibrated on {lo:.0f}-{hi:.0f} %.").format(
-                lo=lo, hi=hi)
-            ui.collapseRangeLabel.styleSheet = "color: #d07000; font-weight: bold"
-        if p.position == Position.SUPINE:
-            ui.positionNoteLabel.text = _("Calibrated on supine CTs.")
-            ui.positionNoteLabel.styleSheet = ""
-        else:
-            healthy = "right" if p.side == "left" else "left"
-            extra = (_(" ({healthy} side down)").format(healthy=healthy) if p.position == Position.LATERAL else "")
-            ui.positionNoteLabel.text = _("Calibrated on supine CTs: the stiffness rule is not validated in this "
-                                          "position{extra}.").format(extra=extra)
-            ui.positionNoteLabel.styleSheet = "color: #d07000"
-        ui.fixedESpinBox.enabled = p.stiffness == Stiffness.FIXED
+        # collapse % <-> E (rule) and the collapsed lung's %
+        if not self._updating:
+            self._updating = True
+            try:
+                self.syncCollapseAndE()
+            finally:
+                self._updating = False
+        self.updateCollapseSection()
 
         # run
         missing = self.missingInputs()
@@ -632,44 +830,36 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # ------------------------------------------------------------------ run
     def collectParams(self):
         """The UI values (named as the config keys) + surfaces + output_dir: what LungCollapseLogic.run gets."""
-        p, ui = self._parameterNode, self.ui
-        src = self.source()
+        p = self._parameterNode
         params = {
-            "source": src,
             "side": p.side,
-            "collapse_percent": "target" if p.useTargetCollapse else float(p.collapsePercent),
+            "collapse_percent": (None if p.driveBy == "pressure" else
+                                 "target" if p.useTargetCollapse else float(p.collapsePercent)),
+            "physics.collapse.p0_Pa": float(p.p0Value) if p.driveBy == "pressure" else None,
             "physics.gravity.collapse": self.logic.gravity_collapse(p.position.value, p.side),
             "physics.gravity.reference": p.ctPosition.value,
             "collapse.sequence_frames": int(p.frames),
-            "physics.E_Pa": {"rule": "collapse"} if p.stiffness == Stiffness.RULE else float(p.fixedE),
+            "physics.E_Pa": ({"rule": "collapse"} if p.linkE and p.driveBy != "pressure" else float(p.eValue)),
             "physics.material.nu": float(p.nu),
             "fem_setup.wall.tol_mm": float(p.wallMargin),
             "solver.device": p.device.value,
             "rebuild_geometry": bool(p.rebuildGeometry),
-            "closing_mm": float(p.closingMm),
             "output_dir": p.outputDir or None,
         }
-        if src == "surfaces":
-            space = ui.surfaceSpaceComboBox.currentText
-            params["surfaces"] = {
-                "inflated": ui.lungSurfacePath.currentPath, "airways": ui.airwaysSurfacePath.currentPath,
-                "arteries": ui.arteriesSurfacePath.currentPath, "veins": ui.veinsSurfacePath.currentPath,
-                "collapsed": ui.collapsedSurfacePath.currentPath or None}
-            params["surface_space"] = space
-            params["name"] = lcinputs.safe_name(Path(ui.lungSurfacePath.currentPath).name.split(".")[0])
-            params["inputs_key"] = "surfaces:" + "|".join(str(v) for v in params["surfaces"].values())
-        else:
-            params["segmentation"] = p.segmentation
-            params["lung_segments"] = p.lungSegmentIds.split(",")
-            params["structures"] = {s: getattr(p, s + "SegmentId") for s in STRUCTURES}
-            if p.compareCollapsed and p.collapsedSegmentId:
-                params["collapsed_segmentation"] = p.collapsedSegmentation or p.segmentation
-                params["collapsed_segment"] = p.collapsedSegmentId
-            params["reference_volume"] = p.ctVolume
-            params["name"] = lcinputs.safe_name(p.segmentation.GetName())
-            params["inputs_key"] = "|".join([p.segmentation.GetID(), p.side, p.lungSegmentIds] +
-                                            [getattr(p, s + "SegmentId") for s in STRUCTURES] +
-                                            [str(params.get("collapsed_segment"))])
+        roles = {"inflated": "lung" + p.side.capitalize(), "airways": "airways", "arteries": "arteries",
+                 "veins": "veins"}
+        if p.compareCollapsed:
+            roles["collapsed"] = "collapsed"
+        params["inputs"] = {}
+        for role, n in roles.items():
+            resolved = self.logic.resolveInput(p, n, load=True)
+            if resolved is None:
+                raise ValueError(_("Missing input: {what}").format(what=INPUT_LABELS[n]))
+            params["inputs"][role] = resolved
+        params["reference_volume"] = self.logic.resolveCT(p)
+        params["name"] = lcinputs.safe_name(self.logic.inputName(p, roles["inflated"]))
+        params["inputs_key"] = "|".join(
+            [p.side] + ["%s:%s:%s" % (r, node.GetID(), ",".join(ids)) for r, (node, ids) in params["inputs"].items()])
         return params
 
     def onApply(self):
@@ -678,6 +868,7 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             with slicer.util.tryWithErrorDisplay(_("Failed to install the dependencies.")):
                 if not lcdeps.ensure(ask=True):
                     return
+                reload_rules()
         with slicer.util.tryWithErrorDisplay(_("Failed to start the prediction."), waitCursor=True):
             params = self.collectParams()
             ui.logTextEdit.clear()
@@ -726,15 +917,19 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         with slicer.util.tryWithErrorDisplay(_("Failed to load the results."), waitCursor=True):
             self._results = self.logic.loadResults(result, colorBy=self.colorBy())
             self._results["is_temp"] = result.get("is_temp", False)
+            self._results["p0_Pa"] = result.get("summary", {}).get("physics", {}).get("p0_Pa")
+            self._results["collapse_percent"] = result.get("summary", {}).get("collapse_percent")
             ui.stageLabel.text = _("Done in {t:.0f} s: {where}").format(
                 t=result.get("seconds", 0), where=(_("temporary folder") if result.get("is_temp")
                                                    else str(result.get("work"))))
             self.showResults()
-            seg = self._parameterNode.segmentation
-            if seg is not None and seg.GetDisplayNode() is not None:
-                seg.GetDisplayNode().SetVisibility3D(False)     # the 3D view shows the results; 2D keeps it
-            if self.ui.removeLoadedCheckBox.checked and self.source() == "files":
-                self.logic.removeLoadedInputs(keep=[self._parameterNode.ctVolume])
+            p = self._parameterNode
+            for n in SEG_INPUTS:                          # the 3D view shows the results; 2D keeps the inputs
+                resolved = self.logic.resolveInput(p, n, load=False)
+                if resolved is not None and resolved[0].GetDisplayNode() is not None:
+                    resolved[0].GetDisplayNode().SetVisibility3D(False)
+            if self.ui.removeLoadedCheckBox.checked:
+                self.logic.removeLoadedInputs(keep=("ct",))
         self.updateGui()
 
     def colorBy(self):
@@ -840,7 +1035,7 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
         ScriptedLoadableModuleLogic.__init__(self)
         self.workFolders = lcwork.WorkFolders(Path(slicer.app.temporaryPath) / "LungCollapse")
         self.workFolders.remove_stale()
-        self.loadedNodes = []
+        self._inputs = {}         # input name -> (paths, node) of the inputs loaded from files
         self.runner = None
         self.backend = os.environ.get("LUNGCOLLAPSE_BACKEND", "auto")   # auto | fake | package
         self._closeObserver = slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self._onSceneClosed)
@@ -852,7 +1047,7 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
     def _onSceneClosed(self, caller=None, event=None):
         self.cancel()
         self.workFolders.discard()
-        self.loadedNodes = []
+        self._inputs = {}
 
     def _onQuit(self):
         self.cancel()
@@ -877,36 +1072,127 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
         """The real prediction, unless LUNGCOLLAPSE_BACKEND=fake (the Part 1 stand-in, for tests)."""
         return self.backend != "fake"
 
+    # ------------------------------------------------------------------ inputs
+    def loadFileInput(self, name, paths):
+        """Node of an input given as file(s): loaded once, replaced when the paths change. Several files of a
+        segmentation input are merged into one segmentation (all their segments are used)."""
+        paths = tuple(str(x) for x in paths)
+        old = self._inputs.get(name)
+        if old is not None and slicer.mrmlScene.IsNodePresent(old[1]):
+            if old[0] == paths:
+                return old[1]
+            slicer.mrmlScene.RemoveNode(old[1])
+        if name == "ct":
+            node = slicer.util.loadVolume(paths[0])
+        else:
+            node = self._loadSegmentations(name, paths)
+            color = INPUT_COLORS.get(name)
+            seg = node.GetSegmentation()
+            for i in range(seg.GetNumberOfSegments()):
+                if color:
+                    seg.GetNthSegment(i).SetColor(*color)
+            node.CreateClosedSurfaceRepresentation()
+        node.SetAttribute("LungCollapse.Input", name)
+        self._inputs[name] = (paths, node)
+        return node
+
+    @staticmethod
+    def _loadSegmentations(name, paths):
+        nodeName = "%s (%s)" % (INPUT_LABELS[name], ", ".join(os.path.basename(x).split(".")[0] for x in paths))
+        loaded = []
+        try:
+            for path in paths:
+                seg, added = lcinputs.load_segmentation_file(path)
+                for n in added:                          # labelmaps / models used for the import
+                    if n is not seg:
+                        slicer.mrmlScene.RemoveNode(n)
+                loaded.append((path, seg))
+            if len(loaded) == 1:
+                loaded[0][1].SetName(nodeName)
+                return loaded[0][1]
+            merged = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", nodeName)
+            merged.CreateDefaultDisplayNodes()
+            for path, seg in loaded:
+                segs = seg.GetSegmentation()
+                if segs.GetNumberOfSegments() == 1:
+                    segs.GetNthSegment(0).SetName(os.path.basename(path).split(".")[0])
+                for i in range(segs.GetNumberOfSegments()):
+                    merged.GetSegmentation().CopySegmentFromSegmentation(segs, segs.GetNthSegmentID(i))
+            return merged
+        finally:
+            if len(loaded) > 1:
+                for _path, seg in loaded:
+                    slicer.mrmlScene.RemoveNode(seg)
+
+    def _fileNode(self, name, paths):
+        old = self._inputs.get(name)
+        if old is not None and old[0] == tuple(paths) and slicer.mrmlScene.IsNodePresent(old[1]):
+            return old[1]
+        return None
+
+    @staticmethod
+    def _paths(p, name):
+        return [x.strip() for x in getattr(p, name + "Path").split(";") if x.strip()]
+
+    def inputAvailable(self, p, name):
+        """True when the input is set: scene node (+ segments), or existing file(s)."""
+        if getattr(p, name + "Source") == "file":
+            paths = self._paths(p, name)
+            return bool(paths) and all(os.path.isfile(x) for x in paths)
+        if name == "ct":
+            return p.ctVolume is not None
+        node = getattr(p, name + "Segmentation")
+        ids = [i for i in getattr(p, name + "SegmentIds").split(",") if i]
+        return node is not None and bool(ids) and all(node.GetSegmentation().GetSegment(i) for i in ids)
+
+    def resolveInput(self, p, name, load=True):
+        """(segmentation node, [segment IDs]) of a segmentation input, or None when not set. From files: all
+        the segments of the loaded file(s); load=False does not load files that are not loaded yet."""
+        if not self.inputAvailable(p, name):
+            return None
+        if getattr(p, name + "Source") == "file":
+            paths = self._paths(p, name)
+            node = self._fileNode(name, paths) or (self.loadFileInput(name, paths) if load else None)
+            if node is None:
+                return None
+            seg = node.GetSegmentation()
+            return node, [seg.GetNthSegmentID(i) for i in range(seg.GetNumberOfSegments())]
+        return getattr(p, name + "Segmentation"), [i for i in getattr(p, name + "SegmentIds").split(",") if i]
+
+    def resolveCT(self, p):
+        if not self.inputAvailable(p, "ct"):
+            return None
+        if p.ctSource == "file":
+            paths = self._paths(p, "ct")
+            return self._fileNode("ct", paths) or self.loadFileInput("ct", paths)
+        return p.ctVolume
+
+    def inputName(self, p, name):
+        """A name for the work folder: the segmentation's, or the first file's."""
+        if getattr(p, name + "Source") == "file":
+            paths = self._paths(p, name)
+            return os.path.basename(paths[0]).split(".")[0] if paths else "lung"
+        node = getattr(p, name + "Segmentation")
+        return node.GetName() if node is not None else "lung"
+
     def removeLoadedInputs(self, keep=()):
-        keep_ids = {n.GetID() for n in keep if n is not None}
-        for n in self.loadedNodes:
-            if n is not None and slicer.mrmlScene.IsNodePresent(n) and n.GetID() not in keep_ids:
-                slicer.mrmlScene.RemoveNode(n)
-        self.loadedNodes = []
+        """Remove from the scene the inputs loaded from files (except the names in keep)."""
+        for name, (paths, node) in list(self._inputs.items()):
+            if name in keep:
+                continue
+            if slicer.mrmlScene.IsNodePresent(node):
+                slicer.mrmlScene.RemoveNode(node)
+            del self._inputs[name]
 
     # ------------------------------------------------------------------ surfaces
     def exportSurfaces(self, params):
-        """{structure: vtkPolyData in RAS (world)} from the segmentation (section 3), or from surface files."""
-        if params.get("source") == "surfaces":
-            out = {}
-            space = params.get("surface_space", "LPS")
-            for k, path in params["surfaces"].items():
-                if not path:
-                    out[k] = None
-                    continue
-                pd, found = lcinputs.read_surface_file(path, "auto")
-                if found is None and space == "RAS":
-                    pd, _f = lcinputs.read_surface_file(path, "RAS")
-                out[k] = pd
-            return out
-        seg = params["segmentation"]
-        out = {"inflated": lcinputs.merged_surface(seg, params["lung_segments"], params.get("closing_mm", 1.5),
-                                                   params.get("reference_volume"))}
-        for s, sid in params["structures"].items():
-            out[s] = lcinputs.segment_surface(seg, sid)
-        out["collapsed"] = None
-        if params.get("collapsed_segment"):
-            out["collapsed"] = lcinputs.segment_surface(params["collapsed_segmentation"], params["collapsed_segment"])
+        """{role: vtkPolyData in RAS (world)} from params["inputs"] = {role: (segmentation node, [segment IDs])}
+        (section 3): several segments are merged (a lung with a closing, to fill the fissure gaps)."""
+        out = {"collapsed": None}
+        ref = params.get("reference_volume")
+        for role, (node, ids) in params["inputs"].items():
+            closing = LUNG_CLOSING_MM if role in ("inflated", "collapsed") else 0.0
+            out[role] = lcinputs.merged_surface(node, ids, closing, ref)
         return out
 
     # ------------------------------------------------------------------ config
@@ -933,7 +1219,9 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
                          "structures": {s: names[s] for s in STRUCTURES}}
         ph = cfg.setdefault("physics", {})
         pct = params["collapse_percent"]
-        if pct != "target":
+        if params.get("physics.collapse.p0_Pa") is not None:          # p0 given: the collapse % is the result
+            ph["collapse"] = {"p0_Pa": float(params["physics.collapse.p0_Pa"])}
+        elif pct != "target":
             ph["collapse"] = {"volume_ratio": round(1.0 - float(pct) / 100.0, 6)}
         ph["gravity"] = {"reference": params["physics.gravity.reference"],
                          "collapse": params["physics.gravity.collapse"]}
@@ -953,26 +1241,18 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
 
     @staticmethod
     def slicerRecord(params):
-        rec = {"source": params.get("source"), "side": params.get("side"),
-               "closing_mm": params.get("closing_mm"), "conversion_parameters": lcinputs.CONVERSION_PARAMETERS,
-               "slicer_version": slicer.app.applicationVersion, "date": time.strftime("%Y-%m-%d %H:%M:%S")}
-        seg = params.get("segmentation")
-        if seg is not None:
-            s = seg.GetSegmentation()
-            rec["segmentation"] = seg.GetName()
-            rec["lung_segments"] = [s.GetSegment(i).GetName() for i in params["lung_segments"] if s.GetSegment(i)]
-            rec["structures"] = {k: s.GetSegment(v).GetName() for k, v in params["structures"].items()
-                                 if s.GetSegment(v)}
-            cs = params.get("collapsed_segmentation")
-            if cs is not None and cs.GetSegmentation().GetSegment(params["collapsed_segment"]):
-                rec["collapsed_segment"] = cs.GetSegmentation().GetSegment(params["collapsed_segment"]).GetName()
+        rec = {"side": params.get("side"), "lung_closing_mm": LUNG_CLOSING_MM,
+               "conversion_parameters": lcinputs.CONVERSION_PARAMETERS,
+               "slicer_version": slicer.app.applicationVersion, "date": time.strftime("%Y-%m-%d %H:%M:%S"),
+               "inputs": {}}
+        for role, (node, ids) in params.get("inputs", {}).items():
+            seg = node.GetSegmentation()
+            rec["inputs"][role] = {"segmentation": node.GetName(),
+                                   "segments": [seg.GetSegment(i).GetName() for i in ids if seg.GetSegment(i)]}
             try:
-                rec["conversion_parameters"] = {
-                    k: seg.GetSegmentation().GetConversionParameter(k) for k in lcinputs.CONVERSION_PARAMETERS}
+                rec["conversion_parameters"] = {k: seg.GetConversionParameter(k) for k in lcinputs.CONVERSION_PARAMETERS}
             except Exception:
                 pass
-        elif params.get("source") == "surfaces":
-            rec["surface_files"] = {k: v for k, v in params.get("surfaces_paths", {}).items()}
         return rec
 
     # ------------------------------------------------------------------ run
@@ -980,9 +1260,12 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
         """(program, args, env) of the prediction process."""
         py = lcprocess.python_slicer()
         pct = params["collapse_percent"]
-        args = ["--config", str(Path(work) / "config.json"),
-                "--collapse", "target" if pct == "target" else "%.4f" % float(pct),
-                "--frames", str(params["collapse.sequence_frames"]), "--run", run_name]
+        args = ["--config", str(Path(work) / "config.json")]
+        if pct is not None:
+            args += ["--collapse", "target" if pct == "target" else "%.4f" % float(pct)]
+        elif params.get("physics.collapse.p0_Pa") is not None:      # driven by the pressure: p0 and E given
+            args += ["--p0", "%.6g" % params["physics.collapse.p0_Pa"], "--E", "%.6g" % float(params["physics.E_Pa"])]
+        args += ["--frames", str(params["collapse.sequence_frames"]), "--run", run_name]
         if steps:
             args += ["--steps"] + list(steps)
         env = {"EURELAPS_PYTHON": py}
@@ -1039,7 +1322,10 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
         if params.get("rebuild_geometry") or lcwork.stored_hash(work) != ghash or not lcwork.has_geometry(work):
             steps = list(GEOMETRY_STEPS)
         pct = params["collapse_percent"]
-        run_name = "pred_target" if pct == "target" else ("pred_%g" % round(float(pct), 1)).replace(".", "p")
+        if pct is None:
+            run_name = "pred_p0_%d" % round(params["physics.collapse.p0_Pa"])
+        else:
+            run_name = "pred_target" if pct == "target" else ("pred_%g" % round(float(pct), 1)).replace(".", "p")
         program, args, env = self.command(work, params, run_name, steps)
         progress = lcprocess.Progress()
         inflated_ml = lcinputs.volume_ml(surfaces["inflated"])
@@ -1048,7 +1334,8 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
                            "stage": _("Starting") + (" (" + _("geometry is rebuilt") + ")" if steps else
                                                      " (" + _("geometry reused") + ")"), "percent": 0})
         result = {"work": str(work), "out_dir": str(Path(work) / "out"), "run_name": run_name, "is_temp": is_temp,
-                  "config": str(config_path), "inflated_ml": inflated_ml, "asked": pct, "name": params["name"],
+                  "config": str(config_path), "inflated_ml": inflated_ml, "asked": pct,
+                  "p0_given": params.get("physics.collapse.p0_Pa"), "name": params["name"],
                   "side": params["side"], "warnings": list(warnings), "inflated_surface": surfaces["inflated"],
                   "steps": steps, "fake": not self.use_package()}
 
@@ -1110,7 +1397,10 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
         if result.get("inflated_surface") is not None:
             nodes["inflated"] = lcoutputs.add_polydata_model(result["inflated_surface"], prefix + "_inflated",
                                                              "inflated", color=(0.55, 0.75, 0.95), opacity=0.25)
-        rows = lcoutputs.summary_rows(result.get("summary", {}), result.get("inflated_ml"), result.get("asked"))
+        asked = result.get("asked")
+        if asked is None and result.get("p0_given") is not None:
+            asked = "p0 given: %.0f Pa" % result["p0_given"]
+        rows = lcoutputs.summary_rows(result.get("summary", {}), result.get("inflated_ml"), asked)
         nodes["table"] = lcoutputs.results_table(rows, prefix + "_results")
         nodes["name"] = "%s_%s" % (result.get("name"), result.get("side"))
         # the segmentation stays in 2D, the 3D view shows the results
@@ -1180,6 +1470,8 @@ class LungCollapseTest(ScriptedLoadableModuleTest):
         self.test_guess()
         self.setUp()
         self.test_fake_run()
+        self.setUp()
+        self.test_widget_inputs()
 
     def test_guess(self):
         seg = make_synthetic_segmentation()
@@ -1208,14 +1500,13 @@ class LungCollapseTest(ScriptedLoadableModuleTest):
         logic = LungCollapseLogic()
         logic.backend = "fake"
         g = lcinputs.guess(seg)
-        params = {"source": "scene", "side": "left", "collapse_percent": 40.0,
+        params = {"side": "left", "collapse_percent": 40.0,
                   "physics.gravity.collapse": "supine", "physics.gravity.reference": "supine",
                   "collapse.sequence_frames": 6, "physics.E_Pa": {"rule": "collapse"}, "physics.material.nu": 0.3,
                   "fem_setup.wall.tol_mm": 5.0, "solver.device": "cpu", "rebuild_geometry": False,
-                  "closing_mm": 1.5, "output_dir": None, "segmentation": seg,
-                  "lung_segments": g["lungs"]["left"], "structures": {s: g[s] for s in STRUCTURES},
-                  "collapsed_segmentation": seg, "collapsed_segment": g["collapsed"], "reference_volume": None,
-                  "name": "test", "inputs_key": "test"}
+                  "output_dir": None, "reference_volume": None, "name": "test", "inputs_key": "test",
+                  "inputs": {"inflated": (seg, g["lungs"]["left"]), "collapsed": (seg, [g["collapsed"]])}}
+        params["inputs"].update({s: (seg, [g[s]]) for s in STRUCTURES})
         os.environ["LUNGCOLLAPSE_FAKE_DELAY"] = "0.01"
         params["surfaces"] = logic.exportSurfaces(params)
         result = logic.runSync(params, timeout_s=120)
@@ -1231,6 +1522,14 @@ class LungCollapseTest(ScriptedLoadableModuleTest):
         Xi = vtk_to_numpy(params["surfaces"]["inflated"].GetPoints().GetData())
         self.assertLess(np.abs(X0.mean(0) - Xi.mean(0)).max(), 1.0)
         self.assertGreater(nodes["table"].GetNumberOfRows(), 5)
+        # p0 given (and E): the collapse % is the result
+        p0params = dict(params, collapse_percent=None, **{"physics.collapse.p0_Pa": 330.0, "physics.E_Pa": 800.0})
+        r0 = logic.runSync(p0params, timeout_s=120)
+        self.assertTrue(r0.get("ok"), r0.get("message"))
+        self.assertEqual(r0["run_name"], "pred_p0_330")
+        cfg = json.loads(Path(r0["config"]).read_text())
+        self.assertEqual(cfg["physics"]["collapse"], {"p0_Pa": 330.0})
+        self.assertAlmostEqual(r0["summary"]["collapse_percent"], collapse_from_q0(330.0 / 800.0), delta=0.1)
         # a second run with another collapse %: geometry reused, same temporary folder
         params["collapse_percent"] = 60.0
         result2 = logic.runSync(params, timeout_s=120)
@@ -1241,3 +1540,80 @@ class LungCollapseTest(ScriptedLoadableModuleTest):
         slicer.mrmlScene.Clear()
         self.assertFalse(work.exists())
         self.delayDisplay("fake run: ok")
+
+    def test_widget_inputs(self):
+        """The Inputs rows: scene pre-selection, a lung from several files (merged), the checks before Apply."""
+        import tempfile
+        seg = make_synthetic_segmentation()
+        slicer.util.selectModule("LungCollapse")
+        w = slicer.modules.LungCollapseWidget
+        logic, ui = w.logic, w.ui
+        w.ui.lungLeftSegmentSelector.setCurrentNode(None)
+        p = w._parameterNode
+        for n in SEG_INPUTS:
+            setattr(p, n + "Segmentation", None)
+            setattr(p, n + "SegmentIds", "")
+        w.restoreFromParameterNode()
+        # scene: choosing the segmentation in one row fills the others from the segment names
+        ui.airwaysSegmentSelector.setCurrentNode(seg)
+        name = lambda n: [seg.GetSegmentation().GetSegment(i).GetName() for i in w._ids(n)]
+        self.assertEqual(name("lungLeft"), ["lung_left"])
+        self.assertEqual(sorted(name("lungRight")), ["lung_lower_lobe_right", "lung_upper_lobe_right"])
+        self.assertEqual(name("veins"), ["veins"])
+        self.assertEqual(name("collapsed"), ["lung_left_collapsed"])
+        self.assertTrue(p.compareCollapsed)
+        self.assertEqual(p.side, "left")
+        self.assertEqual(w.missingInputs(), [])
+        # right lung from two files (its lobes): merged into one segmentation, all segments used
+        tmp = tempfile.mkdtemp(prefix="LungCollapseTest_", dir=slicer.app.temporaryPath)
+        paths = []
+        for sid in w._ids("lungRight"):
+            pd = lcinputs.segment_surface(seg, sid)
+            path = os.path.join(tmp, seg.GetSegmentation().GetSegment(sid).GetName() + ".vtk")
+            model = slicer.modules.models.logic().AddModel(pd)
+            slicer.util.saveNode(model, path)
+            slicer.mrmlScene.RemoveNode(model)
+            paths.append(path)
+        ui.lungRightFileRadio.checked = True
+        ui.lungRightPathsEdit.text = "; ".join(paths)
+        w.onPathsEdited("lungRight")
+        node, ids = logic.resolveInput(p, "lungRight")
+        self.assertEqual(len(ids), 2)
+        self.assertEqual(node.GetAttribute("LungCollapse.Input"), "lungRight")
+        ui.sideRightRadio.checked = True
+        self.assertEqual(p.side, "right")
+        # collapse % <-> E through the rule; the collapsed lung's % as the default
+        w.updateInflatedVolume()
+        self.assertIsNotNone(w._targetPercent)
+        self.assertTrue(p.useTargetCollapse)
+        self.assertAlmostEqual(p.collapsePercent, round(w._targetPercent, 1), delta=0.06)
+        p.useTargetCollapse = False
+        p.collapsePercent = 40.0
+        self.assertAlmostEqual(p.eValue, round(E_from_collapse(40.0)), delta=0.6)
+        p.eValue = 1500.0
+        self.assertAlmostEqual(p.collapsePercent, round(collapse_from_E(1500.0), 1), delta=0.06)
+        p.linkE = False
+        p.eValue = 3000.0
+        self.assertAlmostEqual(p.collapsePercent, round(collapse_from_E(1500.0), 1), delta=0.06)
+        p.linkE = True
+        self.assertAlmostEqual(p.eValue, round(E_from_collapse(p.collapsePercent)), delta=0.6)
+        self.assertAlmostEqual(p.p0Value, round(q0_from_collapse(p.collapsePercent) * p.eValue), delta=0.6)
+        # driven by p0: the collapse % is the estimate from q0 = p0 / E
+        ui.drivePressureRadio.checked = True
+        p.p0Value = 400.0
+        p.eValue = 900.0
+        self.assertAlmostEqual(p.collapsePercent, round(collapse_from_q0(400.0 / 900.0), 1), delta=0.06)
+        self.assertTrue(ui.percentRowsWidget.isHidden())
+        self.assertFalse(ui.p0SpinBox.readOnly)
+        ui.drivePercentRadio.checked = True
+        self.assertEqual(w.missingInputs(), [])
+        merged = lcinputs.merged_surface(node, ids, LUNG_CLOSING_MM)
+        self.assertEqual(lcinputs.n_components(merged), 1)
+        # no left lung: the right one is enough; no lung at all: missing
+        ui.lungLeftSegmentSelector.setCurrentNode(None)
+        self.assertEqual(w.missingInputs(), [])
+        ui.lungRightPathsEdit.text = ""
+        w.onPathsEdited("lungRight")
+        self.assertIn(_("a lung (left or right)"), w.missingInputs())
+        logic.removeLoadedInputs()
+        self.delayDisplay("inputs: ok")

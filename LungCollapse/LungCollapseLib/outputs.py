@@ -168,52 +168,69 @@ def set_color_by(proxy, color_by, maxima):
 # --------------------------------------------------------------------------------------------------
 # results table
 
+CMH2O_PA = 98.0665
+
+
 def summary_rows(summary, inflated_ml=None, asked=None):
-    """[(quantity, value)] for the results table (section 7)."""
+    """[(quantity, value, unit)] for the results table (section 7)."""
     ph = summary.get("physics", {})
     rows = []
     ratio = summary.get("volume_ratio")
     if inflated_ml:
-        rows.append(("Inflated volume (mL)", "%.0f" % inflated_ml))
+        rows.append(("Inflated volume", "%.0f" % inflated_ml, "mL"))
         if ratio is not None:
-            rows.append(("Collapsed volume (mL)", "%.0f" % (ratio * inflated_ml)))
+            rows.append(("Collapsed volume", "%.0f" % (ratio * inflated_ml), "mL"))
     if asked is not None:
-        rows.append(("Collapse asked (%)", asked if isinstance(asked, str) else "%.1f" % asked))
+        if isinstance(asked, str):
+            rows.append(("Asked", asked, ""))
+        else:
+            rows.append(("Collapse asked", "%.1f" % asked, "%"))
     if summary.get("collapse_percent") is not None:
-        rows.append(("Collapse reached (%)", "%.1f" % summary["collapse_percent"]))
+        rows.append(("Collapse reached", "%.1f" % summary["collapse_percent"], "%"))
+    est = (summary.get("prediction") or {}).get("estimate")
+    if est:
+        if est.get("from") == "p0":
+            rows.append(("Collapse estimated before the run (rules)", "%.1f" % est["collapse_percent"], "%"))
+        else:
+            rows.append(("p0 estimated before the run (rules)", "%.0f" % est["p0_Pa"], "Pa"))
     if ph.get("E_Pa") is not None:
-        rows.append(("E (Pa)", "%.0f" % ph["E_Pa"]))
+        rows.append(("Stiffness E", "%.0f" % ph["E_Pa"], "Pa"))
     if ph.get("p0_Pa") is not None:
-        rows.append(("p0 (Pa)", "%.0f" % ph["p0_Pa"]))
+        rows.append(("Pressure p0", "%.0f" % ph["p0_Pa"], "Pa"))
+        rows.append(("Pressure p0", "%.2f" % (ph["p0_Pa"] / CMH2O_PA), "cmH2O"))
+    if ph.get("q0") is not None:
+        rows.append(("q0 = p0 / E", "%.3f" % ph["q0"], "-"))
     if summary.get("solves") is not None:
-        rows.append(("Solves", "%d" % summary["solves"]))
+        rows.append(("Solves", "%d" % summary["solves"], "-"))
     if summary.get("elapsed_min") is not None:
-        rows.append(("Time (min)", "%.2f" % summary["elapsed_min"]))
+        rows.append(("Solver time", "%.0f" % (60.0 * summary["elapsed_min"]), "s"))
     if summary.get("wall_max_penetration_mm") is not None:
-        rows.append(("Wall penetration (mm)", "%.2f" % summary["wall_max_penetration_mm"]))
-    errs = (("ASSD (mm)", "assd_mm"), ("Mean error (mm)", "mean_err_mm"), ("Median error (mm)", "median_err_mm"),
-            ("95th percentile error (mm)", "p95_err_mm"), ("Max error (mm)", "max_err_mm"))
+        rows.append(("Wall penetration (max)", "%.2f" % summary["wall_max_penetration_mm"], "mm"))
+    errs = (("ASSD vs collapsed lung", "assd_mm"), ("Mean error", "mean_err_mm"), ("Median error", "median_err_mm"),
+            ("95th percentile error", "p95_err_mm"), ("Max error", "max_err_mm"))
     for label, key in errs:
         if summary.get(key) is not None:
-            rows.append((label, "%.2f" % summary[key]))
+            rows.append((label, "%.2f" % summary[key], "mm"))
     if summary.get("target_volume_ratio") is not None:
-        rows.append(("Collapse of the real collapsed lung (%)", "%.1f" % (100 * (1 - summary["target_volume_ratio"]))))
+        rows.append(("Collapse of the real collapsed lung", "%.1f" % (100 * (1 - summary["target_volume_ratio"])), "%"))
     if summary.get("fake"):
-        rows.append(("Note", "FAKE run (no FEM): Part 1 interface test"))
+        rows.append(("Note", "FAKE run (no FEM): Part 1 interface test", ""))
     return rows
 
 
 def results_table(rows, name="LungCollapse_results"):
     table = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTableNode", name)
     _tag(table, "table")
-    q, v = vtk.vtkStringArray(), vtk.vtkStringArray()
-    q.SetName("Quantity")
-    v.SetName("Value")
-    for a, b in rows:
-        q.InsertNextValue(a)
-        v.InsertNextValue(b)
-    table.AddColumn(q)
-    table.AddColumn(v)
+    cols = []
+    for title in ("Quantity", "Value", "Unit"):
+        c = vtk.vtkStringArray()
+        c.SetName(title)
+        cols.append(c)
+    for row in rows:
+        for c, v in zip(cols, tuple(row) + ("",) * (3 - len(row))):
+            c.InsertNextValue(v)
+    for c in cols:
+        table.AddColumn(c)
     table.SetUseColumnTitleAsColumnHeader(True)
     table.SetLocked(True)
     return table
