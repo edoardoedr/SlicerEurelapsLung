@@ -199,6 +199,10 @@ class LungCollapseParameterNode:
     p0Value: Annotated[float, WithinRange(1.0, 50000.0)] = 330.0
     eValue: Annotated[float, WithinRange(10.0, 100000.0)] = 1004.0
     position: Position = Position.SUPINE
+    # lung tissue: emphysema yes / no is the user's reading of the CT ("" = not answered yet); the limit of
+    # compression (barrier) uses the CT's density and emphysema volume, measured in the run
+    emphysema: str = ""
+    barrier: bool = False
     frames: Annotated[int, WithinRange(0, 60)] = 30
     # advanced
     nu: Annotated[float, WithinRange(0.0, 0.49)] = 0.30
@@ -299,6 +303,8 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         ui.sideLeftRadio.toggled.connect(self.onSideChanged)
         ui.compareCheckBox.toggled.connect(lambda *args: self.inputsChanged())
         ui.drivePressureRadio.toggled.connect(self.onDriveChanged)
+        ui.emphysemaYesRadio.toggled.connect(lambda on: self.onEmphysemaChanged("yes", on))
+        ui.emphysemaNoRadio.toggled.connect(lambda on: self.onEmphysemaChanged("no", on))
         ui.sideRightRadio.toggled.connect(self.onSideChanged)
         ui.collapseVolumeSpinBox.valueChanged.connect(self.onCollapseVolumeChanged)
         ui.outputDirPathLineEdit.currentPathChanged.connect(self.onOutputDirChanged)
@@ -392,6 +398,10 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     getattr(ui, n + "PathEdit").currentPath = getattr(p, n + "Path")
             (ui.sideLeftRadio if p.side == "left" else ui.sideRightRadio).checked = True
             (ui.drivePressureRadio if p.driveBy == "pressure" else ui.drivePercentRadio).checked = True
+            for radio, value in ((ui.emphysemaYesRadio, "yes"), (ui.emphysemaNoRadio, "no")):
+                radio.autoExclusive = False                   # none checked until the user answers
+                radio.checked = p.emphysema == value
+                radio.autoExclusive = True
             ui.outputDirPathLineEdit.currentPath = p.outputDir
         finally:
             self._updating = False
@@ -606,6 +616,13 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._updating or self._parameterNode is None:
             return
         self._parameterNode.driveBy = "pressure" if pressure else "percent"
+        if pressure and not self._parameterNode.barrier:
+            self._parameterNode.barrier = True               # a surgical pressure needs the limit of compression
+
+    def onEmphysemaChanged(self, value, on):
+        if self._updating or self._parameterNode is None or not on:
+            return
+        self._parameterNode.emphysema = value
 
     def syncCollapseAndE(self):
         """Collapse % <-> E through the calibrated rule (when linked); the collapsed lung's % when used."""
@@ -754,6 +771,25 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     last=_(" (last run: {v:.0f} Pa)").format(v=last) if last else ""))
         ui.estimateLabel.styleSheet = "color: gray"
 
+        # lung tissue
+        if p.barrier:
+            note = (_("The CT gives the lung density and the emphysema volume (measured in the run, once per CT)")
+                    + (_("; emphysema 'No': its volume is not used.") if p.emphysema == "no" else "."))
+            style = "color: gray"
+        elif pressure:
+            note = _("A surgical pressure (e.g. 12 mmHg = 1600 Pa) needs the limit of compression: without it the "
+                     "lung can shrink below its own tissue volume.")
+            style = "color: #d07000"
+        else:
+            note = _("Off: the collapse % sets the volume. Emphysema yes / no is recorded in the results.")
+            style = "color: gray"
+        last = (self._results or {}).get("compression")
+        if last and last.get("phi") is not None:
+            note += "<br>" + _("Last run: smallest volume {phi:.0f} % of the inflated lung (collapse at most "
+                               "{mx:.0f} %).").format(phi=100 * last["phi"], mx=100 * (1 - last["phi"]))
+        ui.tissueNoteLabel.text = note
+        ui.tissueNoteLabel.styleSheet = style
+
         # position and sequence
         if p.position == Position.SUPINE:
             ui.positionNoteLabel.text = _("Calibrated on supine CTs.")
@@ -782,6 +818,10 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 missing.append(_(INPUT_LABELS[n]))
         if p.compareCollapsed and not self.logic.inputAvailable(p, "collapsed"):
             missing.append(_("collapsed lung"))
+        if p.emphysema not in ("yes", "no"):
+            missing.append(_("emphysema yes / no (Collapse section)"))
+        if p.barrier and not self.logic.inputAvailable(p, "ct"):
+            missing.append(_("the CT (for the limit of compression)"))
         return missing
 
     def updateGui(self, caller=None, event=None):
@@ -844,12 +884,17 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "fem_setup.wall.tol_mm": float(p.wallMargin),
             "solver.device": p.device.value,
             "rebuild_geometry": bool(p.rebuildGeometry),
+            "physics.emphysema": p.emphysema == "yes",
+            "physics.barrier": bool(p.barrier),
             "output_dir": p.outputDir or None,
         }
         roles = {"inflated": "lung" + p.side.capitalize(), "airways": "airways", "arteries": "arteries",
                  "veins": "veins"}
         if p.compareCollapsed:
             roles["collapsed"] = "collapsed"
+            other = "lungRight" if p.side == "left" else "lungLeft"
+            if self.logic.inputAvailable(p, other):
+                roles["contralateral"] = other                # emphysema measured there (pneumothorax CT)
         params["inputs"] = {}
         for role, n in roles.items():
             resolved = self.logic.resolveInput(p, n, load=True)
@@ -857,6 +902,7 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 raise ValueError(_("Missing input: {what}").format(what=INPUT_LABELS[n]))
             params["inputs"][role] = resolved
         params["reference_volume"] = self.logic.resolveCT(p)
+        params["ct_key"] = params["reference_volume"].GetID() if params["reference_volume"] is not None else None
         params["name"] = lcinputs.safe_name(self.logic.inputName(p, roles["inflated"]))
         params["inputs_key"] = "|".join(
             [p.side] + ["%s:%s:%s" % (r, node.GetID(), ",".join(ids)) for r, (node, ids) in params["inputs"].items()])
@@ -919,6 +965,7 @@ class LungCollapseWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._results["is_temp"] = result.get("is_temp", False)
             self._results["p0_Pa"] = result.get("summary", {}).get("physics", {}).get("p0_Pa")
             self._results["collapse_percent"] = result.get("summary", {}).get("collapse_percent")
+            self._results["compression"] = result.get("summary", {}).get("compression")
             ui.stageLabel.text = _("Done in {t:.0f} s: {where}").format(
                 t=result.get("seconds", 0), where=(_("temporary folder") if result.get("is_temp")
                                                    else str(result.get("work"))))
@@ -1191,7 +1238,7 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
         out = {"collapsed": None}
         ref = params.get("reference_volume")
         for role, (node, ids) in params["inputs"].items():
-            closing = LUNG_CLOSING_MM if role in ("inflated", "collapsed") else 0.0
+            closing = LUNG_CLOSING_MM if role in ("inflated", "collapsed", "contralateral") else 0.0
             out[role] = lcinputs.merged_surface(node, ids, closing, ref)
         return out
 
@@ -1217,6 +1264,10 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
         cfg["output_dir"] = "out"
         cfg["inputs"] = {"inflated": names["inflated"], "collapsed": names.get("collapsed"),
                          "structures": {s: names[s] for s in STRUCTURES}}
+        if names.get("ct"):
+            cfg["inputs"]["ct"] = names["ct"]
+        if names.get("contralateral"):
+            cfg["inputs"]["contralateral"] = [names["contralateral"]]
         ph = cfg.setdefault("physics", {})
         pct = params["collapse_percent"]
         if params.get("physics.collapse.p0_Pa") is not None:          # p0 given: the collapse % is the result
@@ -1227,6 +1278,9 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
                          "collapse": params["physics.gravity.collapse"]}
         ph["E_Pa"] = params["physics.E_Pa"]
         ph.setdefault("material", {})["nu"] = params["physics.material.nu"]
+        ph["emphysema"] = bool(params.get("physics.emphysema", False))
+        if params.get("physics.barrier"):
+            ph["barrier"] = {"phi": "ct"}
         cfg.setdefault("fem_setup", {}).setdefault("wall", {})["tol_mm"] = params["fem_setup.wall.tol_mm"]
         solver = cfg.setdefault("solver", {})
         solver["device"] = params["solver.device"]
@@ -1237,7 +1291,9 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
 
     @staticmethod
     def geometryKeys(cfg):
-        return json.dumps({k: cfg.get(k) for k in ("geometry", "hilum", "fem_setup", "inputs")}, sort_keys=True)
+        inputs = {k: v for k, v in (cfg.get("inputs") or {}).items() if k not in ("ct", "contralateral")}
+        return json.dumps(dict({k: cfg.get(k) for k in ("geometry", "hilum", "fem_setup")}, inputs=inputs),
+                          sort_keys=True)
 
     @staticmethod
     def slicerRecord(params):
@@ -1293,6 +1349,7 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
                 surfaces[k], _found = lcinputs.read_surface_file(str(v), "auto")
         if params["collapse_percent"] == "target" and surfaces.get("collapsed") is None:
             raise ValueError(_("'Use the collapse % of the collapsed lung' needs the collapsed lung."))
+        surfaces.setdefault("contralateral", None)
         for k in ("inflated",) + STRUCTURES:
             if surfaces.get(k) is None:
                 raise ValueError(_("Missing surface: {k}").format(k=k))
@@ -1304,9 +1361,13 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
                  "veins": "veins.vtk"}
         if surfaces.get("collapsed") is not None:
             names["collapsed"] = "lung_collapsed.vtk"
+            if surfaces.get("contralateral") is not None:
+                names["contralateral"] = "lung_contralateral.vtk"
         for k, n in names.items():
             lcinputs.write_vtk_ras(surfaces[k], str(Path(work) / "inputs" / n))
-        warnings = lcinputs.check_surfaces({k: surfaces.get(k) for k in names})
+        warnings = lcinputs.check_surfaces({k: surfaces.get(k) for k in names if k != "contralateral"})
+        if params.get("physics.barrier"):
+            names["ct"] = self.exportCT(work, params, progress_callback)
         for w in warnings:
             progress_callback({"line": "WARNING input check: " + w, "warning": w})
 
@@ -1317,7 +1378,8 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
         config_path.write_text(json.dumps(cfg, indent=2))
 
         # geometry: rebuilt when the inputs or the geometry keys changed, or when asked
-        ghash = lcinputs.surfaces_hash({k: surfaces[k] for k in names}, self.geometryKeys(cfg))
+        ghash = lcinputs.surfaces_hash({k: surfaces[k] for k in names if k not in ("ct", "contralateral")},
+                                       self.geometryKeys(cfg))
         steps = []
         if params.get("rebuild_geometry") or lcwork.stored_hash(work) != ghash or not lcwork.has_geometry(work):
             steps = list(GEOMETRY_STEPS)
@@ -1370,6 +1432,30 @@ class LungCollapseLogic(ScriptedLoadableModuleLogic):
                                               on_finished=on_finished)
         self.runner.start()
         return result
+
+    def exportCT(self, work, params, progress_callback=lambda info: None):
+        """The CT into work/inputs/ct.nrrd for the `ct` step of the package (density, emphysema volume), once
+        per CT: a new CT (or new lung surfaces) drops the measured values out/ct/ct_values.json."""
+        vol = params.get("reference_volume")
+        if vol is None:
+            raise ValueError(_("The limit of compression needs the CT (Inputs)."))
+        inputs = Path(work) / "inputs"
+        path, keyfile = inputs / "ct.nrrd", inputs / "ct_key.txt"
+        key = "%s|%s" % (params.get("ct_key"), params.get("inputs_key"))
+        values = Path(work) / "out" / "ct" / "ct_values.json"
+        if path.is_file() and keyfile.is_file() and keyfile.read_text() == key:
+            return path.name
+        progress_callback({"line": "exporting the CT for the density / emphysema measure", "stage": _("Exporting the CT...")})
+        inputs.mkdir(parents=True, exist_ok=True)
+        export = getattr(slicer.util, "exportNode", None)
+        if export is not None:
+            export(vol, str(path))
+        else:
+            slicer.util.saveNode(vol, str(path))
+        keyfile.write_text(key)
+        if values.is_file():
+            values.unlink()
+        return path.name
 
     def runSync(self, params, timeout_s=3600, progress_callback=None):
         """run() and wait (for tests and scripts). Returns the result dict."""
@@ -1563,6 +1649,10 @@ class LungCollapseTest(ScriptedLoadableModuleTest):
         self.assertEqual(name("collapsed"), ["lung_left_collapsed"])
         self.assertTrue(p.compareCollapsed)
         self.assertEqual(p.side, "left")
+        p.emphysema, p.barrier = "", False
+        self.assertIn(_("emphysema yes / no (Collapse section)"), w.missingInputs())
+        ui.emphysemaNoRadio.checked = True                   # the user's answer
+        self.assertEqual(p.emphysema, "no")
         self.assertEqual(w.missingInputs(), [])
         # right lung from two files (its lobes): merged into one segmentation, all segments used
         tmp = tempfile.mkdtemp(prefix="LungCollapseTest_", dir=slicer.app.temporaryPath)
@@ -1605,7 +1695,11 @@ class LungCollapseTest(ScriptedLoadableModuleTest):
         self.assertAlmostEqual(p.collapsePercent, round(collapse_from_q0(400.0 / 900.0), 1), delta=0.06)
         self.assertTrue(ui.percentRowsWidget.isHidden())
         self.assertFalse(ui.p0SpinBox.readOnly)
+        self.assertTrue(p.barrier)                           # a pressure switches the limit of compression on
+        if p.ctVolume is None:
+            self.assertIn(_("the CT (for the limit of compression)"), w.missingInputs())
         ui.drivePercentRadio.checked = True
+        p.barrier = False
         self.assertEqual(w.missingInputs(), [])
         merged = lcinputs.merged_surface(node, ids, LUNG_CLOSING_MM)
         self.assertEqual(lcinputs.n_components(merged), 1)

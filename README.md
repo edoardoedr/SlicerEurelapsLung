@@ -17,6 +17,8 @@ Module **Lung Collapse**, category *Chest*. Tested on Slicer 5.13 (Apple Silicon
    - **Collapse %:** set it, or take it from the collapsed lung (the default when one is given). E follows it through the calibrated rule, unless unlinked. p0 is shown as the rules' estimate, and the run finds the exact value.
    - **Pressure p0:** set p0 and E. The collapse % is shown as the rules' estimate, and the run gives the real one.
 
+   **Lung tissue.** Answer **Emphysema: Yes / No**: your reading of the CT, required before *Apply*. With **Limit of compression** on, the lung cannot lose more volume than the air that can leave: the run measures the lung density and the emphysema volume (LAA%−950) on the CT and stops the lung above φ = density / 1050 (+ 0.54 × emphysema volume when *Yes*; with *No* the emphysema volume is not used). It needs the CT, and it is switched on by itself when the collapse is driven by a pressure: a surgical pressure (12 mmHg = 1600 Pa) has no physical equilibrium without it. With it off, the collapses driven by the collapse % are unchanged.
+
    Also set the position during the collapse and the number of frames.
 3. **Apply.**
    - The first run builds the model geometry: surface, hilum, Netgen mesh and wall. That takes about 30 s.
@@ -24,7 +26,7 @@ Module **Lung Collapse**, category *Chest*. Tested on Slicer 5.13 (Apple Silicon
 4. **Outputs.**
    - The sequence, coloured by displacement or by the error against the collapsed lung, with play and seek.
    - The inflated lung, the real collapsed lung (wireframe), the hilum and its rings.
-   - A results table: volumes, collapse % reached, E, p0, solves, time, wall penetration, and the errors (ASSD, mean, median, 95th percentile, max).
+   - A results table: volumes, collapse % reached, E, p0, emphysema (your answer), lung density and emphysema volume from the CT, the smallest volume allowed and how much of the lung reached it, solves, time, wall penetration, and the errors (ASSD, mean, median, 95th percentile, max).
 
    Without an output folder, the files go to a temporary folder that is deleted when the scene is closed. *Save outputs…* copies it.
 
@@ -35,7 +37,7 @@ On karl01 (Apple M2, Slicer 5.13 arm64), a whole run with the geometry, 40 % col
 Add the `LungCollapse` folder to *Edit → Application settings → Modules → Additional module paths*, or build the extension. The first *Apply* offers to install:
 
 - **torch**, from the *PyTorch* extension (Extensions Manager). On a Mac, use the **Apple Silicon** build of Slicer. The Intel build gets only torch 2.2.2, and the PyTorch extension then downgrades Slicer's numpy to 1.x.
-- **eurelaps_lung** and its prediction dependencies (pyacvd, netgen-mesher), with pip, from `eurelaps-lung @ git+https://github.com/edoardoedr/lung_collapse.git@v0.1.1`. Another source can be set with the environment variable `LUNGCOLLAPSE_PACKAGE_SPEC` or the setting `LungCollapse/PackageSpec`, for example a local folder or a wheel.
+- **eurelaps_lung** and its prediction dependencies (pyacvd, netgen-mesher), with pip, from `eurelaps-lung @ git+https://github.com/edoardoedr/lung_collapse.git@v0.2.0`. Another source can be set with the environment variable `LUNGCOLLAPSE_PACKAGE_SPEC` or the setting `LungCollapse/PackageSpec`, for example a local folder or a wheel.
 
 Slicer's VTK is used; no second VTK is installed. The extension checks this.
 
@@ -72,6 +74,7 @@ After new fits, `main_calibrate.py --make-default` rewrites the file, and the pa
 - The lateral decubitus position enters as a body force. The rule was not validated in that position.
 - The hilum is taken from the inflated lung. When a ring centre is more than 50 mm from the hilum, a warning is shown: check the rings.
 - The airways, arteries and veins are all required.
+- The limit of compression uses one φ for the whole lung; the trapped share of the emphysematous air (0.54) is a cohort estimate made at the end of a pneumothorax, an upper value for a deflation with suction. The pressure-driven mode with the limit is not validated against surgical CTs.
 
 ## Dependencies and licenses
 

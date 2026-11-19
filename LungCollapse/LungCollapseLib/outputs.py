@@ -200,6 +200,19 @@ def summary_rows(summary, inflated_ml=None, asked=None):
         rows.append(("Pressure p0", "%.2f" % (ph["p0_Pa"] / CMH2O_PA), "cmH2O"))
     if ph.get("q0") is not None:
         rows.append(("q0 = p0 / E", "%.3f" % ph["q0"], "-"))
+    if ph.get("emphysema") is not None:
+        rows.append(("Emphysema (your reading of the CT)", "yes" if ph["emphysema"] else "no", ""))
+    if ph.get("ct_density_kg_m3") is not None:
+        rows.append(("Lung density (CT)", "%.0f" % ph["ct_density_kg_m3"], "kg/m3"))
+    if ph.get("ct_emphysema_percent") is not None:
+        rows.append(("Emphysema volume (CT, LAA%-950)", "%.1f" % ph["ct_emphysema_percent"],
+                     "%" if ph.get("emphysema") else "% (not used)"))
+    comp = summary.get("compression") or {}
+    if comp.get("phi") is not None:
+        rows.append(("Smallest volume (limit of compression)", "%.1f" % (100 * comp["phi"]), "% of inflated"))
+        rows.append(("Volume at the limit", "%.0f" % (100 * comp.get("volume_fraction_active", 0.0)), "% of the lung"))
+    if comp.get("density_mean_kg_m3") is not None:
+        rows.append(("Mean density, collapsed", "%.0f" % comp["density_mean_kg_m3"], "kg/m3"))
     if summary.get("solves") is not None:
         rows.append(("Solves", "%d" % summary["solves"], "-"))
     if summary.get("elapsed_min") is not None:

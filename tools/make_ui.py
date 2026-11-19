@@ -164,7 +164,7 @@ def SegScene(n, multi, tip):
 LUNG_TIP = ("One segment, or several (e.g. the lobes): they are merged into one lung")
 rows = [
     ("CT:", SourceRow("ct", NodeCombo("ctNodeSelector", ["vtkMRMLScalarVolumeNode"],
-                                      toolTip="Optional: for display, and as the reference of the segmentation"),
+                                      toolTip="For display, as the reference of the segmentation, and for the limit of compression (lung density and emphysema volume are measured on it)"),
                       Path("ctPathEdit", FILE_FILTERS, "Optional CT image (.nrrd, .nii, .nii.gz, ...)"))),
     ("Left lung:", SourceRow("lungLeft", SegScene("lungLeft", True, LUNG_TIP), MultiFiles("lungLeft", LUNG_TIP))),
     ("Right lung:", SourceRow("lungRight", SegScene("lungRight", True, LUNG_TIP), MultiFiles("lungRight", LUNG_TIP))),
@@ -234,6 +234,19 @@ collapse = Collapsible("collapseCollapsibleButton", "Collapse", VBox(
                                 toolTip="Pressure released at the collapse (p0 = q0 E)"),
                               Label("p0CmLabel", "", wrap=False), HSpacer())),
         (None, Label("estimateLabel", "")),
+    )),
+    GroupBox("tissueGroupBox", "Lung tissue", Form(
+        ("Emphysema:", W("QWidget", "emphysemaWidget", layout=HBox(
+            W("QRadioButton", "emphysemaYesRadio", text="Yes",
+              toolTip="The CT shows emphysema: its trapped air limits the collapse (volume measured on the CT)"),
+            W("QRadioButton", "emphysemaNoRadio", text="No",
+              toolTip="No emphysema to consider: only the tissue limits the collapse"),
+            HSpacer(), margins=0))),
+        (None, W("QCheckBox", "barrierCheckBox", param="barrier",
+                 text="Limit of compression (tissue + air trapped by emphysema, from the CT)",
+                 toolTip="The lung cannot lose more volume than the air that can leave. Needed for a surgical "
+                         "pressure (12 mmHg = 1600 Pa); without it the cohort-like collapses are unchanged")),
+        (None, Label("tissueNoteLabel", "")),
     )),
     GroupBox("sequenceGroupBox", "Position and sequence", Form(
         ("Position during the collapse:", Combo("positionComboBox", [], param="position")),

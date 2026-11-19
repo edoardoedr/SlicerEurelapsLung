@@ -362,3 +362,10 @@ Not installed in Slicer: `itk` (check_inputs, images), `scikit-learn` (Ward regi
 
 - Slicer works in RAS, the package in LPS. `data_io` converts on read and write, and writes the space in every file (`SPACE=` header / field data).
 - The gravity directions are in the patient's LPS. They are right as long as the surfaces are in patient coordinates (Slicer's RAS world from the CT's IJK→RAS), i.e. with the transforms hardened before the export.
+
+## 11. Lung tissue: emphysema and the limit of compression (eurelaps_lung 0.2.0, 2026-11-19)
+
+- **Emphysema yes / no is asked** (Collapse → Lung tissue; parameter `emphysema`, "" until answered: *Apply* waits for it). It is the user's reading of the CT: the CT index cannot separate emphysema from none below ~5 % (bullae are evident to the eye but 1–3 % of the volume; lung_collapse `analysis/emphysema_review.md`). Written to the config as `physics.emphysema`.
+- **Limit of compression** (`barrier`, off by default, switched on with the pressure drive): `physics.barrier {"phi": "ct"}`. The CT is exported once to `inputs/ct.nrrd` (`Logic.exportCT`; a new CT drops `out/ct/ct_values.json`), the config gets `inputs.ct` (and, with a collapsed lung, `inputs.contralateral` = the other lung when given), and `run_predict.py` runs the package's `ct` step in the geometry child process (SimpleITK and VTK are Slicer's; no torch there). φ = density / 1050 + 0.54 × LAA%−950 / 100 when emphysema is *Yes*, density / 1050 when *No*.
+- Results table: emphysema answer, CT density and emphysema volume, φ and the share of the lung at the limit (summary `compression`).
+- Not changed: the geometry hash ignores `inputs.ct` / `contralateral` (switching the limit on does not rebuild the mesh).

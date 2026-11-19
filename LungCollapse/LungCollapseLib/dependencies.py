@@ -14,7 +14,7 @@ import qt
 import slicer
 
 PACKAGE = "eurelaps_lung"
-PACKAGE_VERSION = "0.1.1"
+PACKAGE_VERSION = "0.2.0"
 DEFAULT_SPEC = "eurelaps-lung @ git+https://github.com/edoardoedr/lung_collapse.git@v%s" % PACKAGE_VERSION
 SETTING_SPEC = "LungCollapse/PackageSpec"
 
@@ -87,7 +87,8 @@ def ensure(ask=True):
                 raise RuntimeError("torch could not be installed (PyTorch extension)")
         if PACKAGE in todo:
             with slicer.util.WaitCursor():
-                slicer.util.pip_install(("--upgrade " if s["package"] else "") + package_spec())
+                # a list: each item is one argument (the spec "name @ git+url" has spaces; a string is split on them)
+                slicer.util.pip_install((["--upgrade"] if s["package"] else []) + [package_spec()])
             importlib.invalidate_caches()
             import sys
             for name in [m for m in sys.modules if m == PACKAGE or m.startswith(PACKAGE + ".")]:

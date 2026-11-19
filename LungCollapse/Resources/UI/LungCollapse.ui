@@ -2,7 +2,7 @@
 <ui version="4.0">
  <class>LungCollapse</class>
  <widget class="qMRMLWidget" name="LungCollapse">
-  <layout class="QVBoxLayout" name="vbox_81">
+  <layout class="QVBoxLayout" name="vbox_85">
    <item>
     <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton">
      <property name="text">
@@ -121,7 +121,7 @@
                <bool>false</bool>
               </property>
               <property name="toolTip">
-               <string>Optional: for display, and as the reference of the segmentation</string>
+               <string>For display, as the reference of the segmentation, and for the limit of compression (lung density and emphysema volume are measured on it)</string>
               </property>
              </widget>
              <widget class="ctkPathLineEdit" name="ctPathEdit">
@@ -956,7 +956,7 @@
      <property name="collapsed">
       <bool>false</bool>
      </property>
-     <layout class="QVBoxLayout" name="vbox_58">
+     <layout class="QVBoxLayout" name="vbox_62">
       <item>
        <layout class="QFormLayout" name="form_40">
         <property name="leftMargin">
@@ -1360,13 +1360,103 @@
        </widget>
       </item>
       <item>
+       <widget class="QGroupBox" name="tissueGroupBox">
+        <property name="title">
+         <string>Lung tissue</string>
+        </property>
+        <layout class="QFormLayout" name="form_56">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_55">
+           <property name="text">
+            <string>Emphysema:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QWidget" name="emphysemaWidget">
+           <layout class="QHBoxLayout" name="hbox_54">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QRadioButton" name="emphysemaYesRadio">
+              <property name="text">
+               <string>Yes</string>
+              </property>
+              <property name="toolTip">
+               <string>The CT shows emphysema: its trapped air limits the collapse (volume measured on the CT)</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="emphysemaNoRadio">
+              <property name="text">
+               <string>No</string>
+              </property>
+              <property name="toolTip">
+               <string>No emphysema to consider: only the tissue limits the collapse</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="hspacer_53">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item row="1" column="0" colspan="2">
+          <widget class="QCheckBox" name="barrierCheckBox">
+           <property name="text">
+            <string>Limit of compression (tissue + air trapped by emphysema, from the CT)</string>
+           </property>
+           <property name="toolTip">
+            <string>The lung cannot lose more volume than the air that can leave. Needed for a surgical pressure (12 mmHg = 1600 Pa); without it the cohort-like collapses are unchanged</string>
+           </property>
+           <property name="SlicerParameterName" stdset="0">
+            <string>barrier</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0" colspan="2">
+          <widget class="QLabel" name="tissueNoteLabel">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
        <widget class="QGroupBox" name="sequenceGroupBox">
         <property name="title">
          <string>Position and sequence</string>
         </property>
-        <layout class="QFormLayout" name="form_57">
+        <layout class="QFormLayout" name="form_61">
          <item row="0" column="0">
-          <widget class="QLabel" name="label_55">
+          <widget class="QLabel" name="label_59">
            <property name="text">
             <string>Position during the collapse:</string>
            </property>
@@ -1393,14 +1483,14 @@
           </widget>
          </item>
          <item row="2" column="0">
-          <widget class="QLabel" name="label_56">
+          <widget class="QLabel" name="label_60">
            <property name="text">
             <string>Sequence:</string>
            </property>
           </widget>
          </item>
          <item row="2" column="1">
-          <layout class="QHBoxLayout" name="hbox_54">
+          <layout class="QHBoxLayout" name="hbox_58">
            <item>
             <widget class="QSpinBox" name="framesSpinBox">
              <property name="minimum">
@@ -1424,7 +1514,7 @@
             </widget>
            </item>
            <item>
-            <spacer name="hspacer_53">
+            <spacer name="hspacer_57">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
@@ -1462,16 +1552,16 @@
      <property name="collapsed">
       <bool>true</bool>
      </property>
-     <layout class="QFormLayout" name="form_69">
+     <layout class="QFormLayout" name="form_73">
       <item row="0" column="0">
-       <widget class="QLabel" name="label_65">
+       <widget class="QLabel" name="label_69">
         <property name="text">
          <string>Poisson's ratio:</string>
         </property>
        </widget>
       </item>
       <item row="0" column="1">
-       <layout class="QHBoxLayout" name="hbox_60">
+       <layout class="QHBoxLayout" name="hbox_64">
         <item>
          <widget class="QDoubleSpinBox" name="nuSpinBox">
           <property name="decimals">
@@ -1495,7 +1585,7 @@
          </widget>
         </item>
         <item>
-         <spacer name="hspacer_59">
+         <spacer name="hspacer_63">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -1510,7 +1600,7 @@
        </layout>
       </item>
       <item row="1" column="0">
-       <widget class="QLabel" name="label_66">
+       <widget class="QLabel" name="label_70">
         <property name="text">
          <string>CT position:</string>
         </property>
@@ -1527,14 +1617,14 @@
        </widget>
       </item>
       <item row="2" column="0">
-       <widget class="QLabel" name="label_67">
+       <widget class="QLabel" name="label_71">
         <property name="text">
          <string>Wall margin:</string>
         </property>
        </widget>
       </item>
       <item row="2" column="1">
-       <layout class="QHBoxLayout" name="hbox_62">
+       <layout class="QHBoxLayout" name="hbox_66">
         <item>
          <widget class="QDoubleSpinBox" name="wallMarginSpinBox">
           <property name="decimals">
@@ -1561,7 +1651,7 @@
          </widget>
         </item>
         <item>
-         <spacer name="hspacer_61">
+         <spacer name="hspacer_65">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -1576,7 +1666,7 @@
        </layout>
       </item>
       <item row="3" column="0">
-       <widget class="QLabel" name="label_68">
+       <widget class="QLabel" name="label_72">
         <property name="text">
          <string>Device:</string>
         </property>
@@ -1603,7 +1693,7 @@
        </widget>
       </item>
       <item row="5" column="0" colspan="2">
-       <layout class="QHBoxLayout" name="hbox_64">
+       <layout class="QHBoxLayout" name="hbox_68">
         <item>
          <widget class="QPushButton" name="showConfigButton">
           <property name="text">
@@ -1615,7 +1705,7 @@
          </widget>
         </item>
         <item>
-         <spacer name="hspacer_63">
+         <spacer name="hspacer_67">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -1640,9 +1730,9 @@
      <property name="collapsed">
       <bool>false</bool>
      </property>
-     <layout class="QVBoxLayout" name="vbox_79">
+     <layout class="QVBoxLayout" name="vbox_83">
       <item>
-       <layout class="QFormLayout" name="form_71">
+       <layout class="QFormLayout" name="form_75">
         <property name="leftMargin">
          <number>0</number>
         </property>
@@ -1656,7 +1746,7 @@
          <number>0</number>
         </property>
         <item row="0" column="0">
-         <widget class="QLabel" name="label_70">
+         <widget class="QLabel" name="label_74">
           <property name="text">
            <string>Output folder:</string>
           </property>
@@ -1685,7 +1775,7 @@
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="hbox_72">
+       <layout class="QHBoxLayout" name="hbox_76">
         <item>
          <widget class="QPushButton" name="applyButton">
           <property name="text">
@@ -1759,7 +1849,7 @@
         <property name="collapsed">
          <bool>true</bool>
         </property>
-        <layout class="QVBoxLayout" name="vbox_73">
+        <layout class="QVBoxLayout" name="vbox_77">
          <item>
           <widget class="QPlainTextEdit" name="logTextEdit">
            <property name="readOnly">
@@ -1785,7 +1875,7 @@
         <property name="visible">
          <bool>false</bool>
         </property>
-        <layout class="QVBoxLayout" name="vbox_77">
+        <layout class="QVBoxLayout" name="vbox_81">
          <property name="leftMargin">
           <number>0</number>
          </property>
@@ -1800,7 +1890,7 @@
          </property>
          <item>
           <widget class="QWidget" name="sequencePlaceholder">
-           <layout class="QVBoxLayout" name="vbox_74">
+           <layout class="QVBoxLayout" name="vbox_78">
             <property name="leftMargin">
              <number>0</number>
             </property>
@@ -1817,7 +1907,7 @@
           </widget>
          </item>
          <item>
-          <layout class="QHBoxLayout" name="hbox_76">
+          <layout class="QHBoxLayout" name="hbox_80">
            <item>
             <widget class="QLabel" name="colorByLabel">
              <property name="text">
@@ -1843,7 +1933,7 @@
             </widget>
            </item>
            <item>
-            <spacer name="hspacer_75">
+            <spacer name="hspacer_79">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
@@ -1868,7 +1958,7 @@
         <property name="collapsed">
          <bool>false</bool>
         </property>
-        <layout class="QHBoxLayout" name="hbox_78">
+        <layout class="QHBoxLayout" name="hbox_82">
          <item>
           <widget class="QCheckBox" name="showCtCheckBox">
            <property name="text">
@@ -1926,7 +2016,7 @@
     </widget>
    </item>
    <item>
-    <spacer name="spacer_80">
+    <spacer name="spacer_84">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>

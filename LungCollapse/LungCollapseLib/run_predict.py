@@ -2,8 +2,9 @@
 
     PythonSlicer run_predict.py --config <work>/config.json --collapse 40 --frames 30 --run pred_40 [--steps ...]
 
-= `python -m eurelaps_lung.predict ...`, but with the model geometry (geometry -> hilum -> fem_setup) built
-in a child process of its own when it is needed, and the forward run (torch) here.
+= `python -m eurelaps_lung.predict ...`, but with the model geometry (geometry -> hilum -> fem_setup) and,
+with inputs.ct, the CT measure (ct) built in a child process of its own when needed, and the forward run
+(torch) here.
 
 Why: the pip wheel of pykdtree (used by pyacvd in the geometry step) bundles its own libomp, and so does
 torch. In one process the two OpenMP runtimes abort (OMP Error #15) or deadlock (SLICER_EXTENSION.md 10.5):
@@ -47,6 +48,8 @@ def main(argv):
     cfg = load_config(known.config, [])
     have = (cfg.setup_dir / "problem.npz").is_file()
     steps = known.steps or ([] if have else list(GEOMETRY_STEPS))
+    if getattr(cfg, "ct", None) is not None and not (cfg.output_dir / "ct" / "ct_values.json").is_file():
+        steps = ["ct"] + [s for s in steps if s != "ct"]     # density and emphysema volume (no torch here)
     if steps:
         sys.stdout.flush()
         code = subprocess.call([sys.executable, str(Path(__file__).resolve()), "--geometry-only",
